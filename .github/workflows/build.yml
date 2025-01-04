@@ -4,7 +4,15 @@
 # against bad commits.
 
 name: build
-on: [pull_request, push]
+on:
+  push:
+    branches: [main]
+    paths:
+      - src
+      - build.gradle
+      - gradle.properties
+      - settings.gradle
+      - .github/workflows/build.yml
 
 jobs:
   build:
