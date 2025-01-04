@@ -1,0 +1,5 @@
+{
+  "text.config.mc-local-api.title": "MC Local API Configuration",
+  "text.config.mc-local-api.option.port": "Port number",
+  "text.config.mc-local-api.option.enableCors": "Enable CORS"
+}

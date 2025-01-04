@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "mc-local-api",
+  "version": "${version}",
+  "name": "MC Local API",
+  "description": "Local API for interacting with Minecraft",
+  "authors": [
+    {
+      "name": "LuisAFK",
+      "contact": {
+        "email": "mclocalapi@luisafk.dev"
+      }
+    }
+  ],
+  "contact": {
+    "homepage": "https://github.com/lafkpages/mc-local-api",
+    "sources": "https://github.com/lafkpages/mc-local-api"
+  },
+  "icon": "assets/mc-local-api/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "luisafk.mclocalapi.MCLocalAPIClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
