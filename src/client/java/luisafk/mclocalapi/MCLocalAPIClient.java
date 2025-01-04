@@ -50,8 +50,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
         ClientTickEvents.START_CLIENT_TICK.register((minecraftClient) -> {
             if (minecraftClient.player == null) {
-                posSseExchanges.forEach(HttpExchange::close);
-                posSseExchanges.clear();
+                if (config.posSseClose()) {
+                    posSseExchanges.forEach(HttpExchange::close);
+                    posSseExchanges.clear();
+                }
                 return;
             }
 
