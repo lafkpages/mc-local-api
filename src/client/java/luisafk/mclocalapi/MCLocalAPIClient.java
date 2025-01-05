@@ -66,12 +66,13 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 logger.info("Sending pos update: {}", pos);
 
                 posSseExchanges.forEach(exchange -> {
+                    OutputStream os = exchange.getResponseBody();
                     try {
-                        OutputStream os = exchange.getResponseBody();
                         os.write(resp.getBytes());
                         os.flush();
                     } catch (IOException e) {
                         logger.error("Failed to write SSE response", e);
+                        exchange.close();
                     }
                 });
             }
