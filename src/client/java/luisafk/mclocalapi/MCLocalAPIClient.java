@@ -20,7 +20,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.math.Vec3d;
 
 public class MCLocalAPIClient implements ClientModInitializer {
-    public static final luisafk.mclocalapi.MCLocalAPIConfig config = luisafk.mclocalapi.MCLocalAPIConfig.createAndLoad();
+    public static final luisafk.mclocalapi.MCLocalAPIConfig config = luisafk.mclocalapi.MCLocalAPIConfig
+            .createAndLoad();
 
     Logger logger = LoggerFactory.getLogger("mc-local-api");
 
@@ -60,15 +61,20 @@ public class MCLocalAPIClient implements ClientModInitializer {
             Vec3d pos = minecraftClient.player.getPos();
 
             if (lastPos.get().distanceTo(pos) > config.posSseDistanceThreshold()) {
-                String resp = "data: " + pos.toString() + "\n\n";
                 lastPos.set(pos);
+
+                if (posSseExchanges.isEmpty()) {
+                    return;
+                }
+
+                String res = "data: " + pos.toString() + "\n\n";
 
                 logger.info("Sending pos update: {}", pos);
 
                 posSseExchanges.forEach(exchange -> {
                     OutputStream os = exchange.getResponseBody();
                     try {
-                        os.write(resp.getBytes());
+                        os.write(res.getBytes());
                         os.flush();
                     } catch (IOException e) {
                         logger.error("Failed to write SSE response", e);
@@ -135,14 +141,13 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
             setHeaders(exchange);
 
-            String resp = client.player.getPos().toString();
+            String res = client.player.getPos().toString();
 
-            exchange.sendResponseHeaders(200, resp.length());
+            exchange.sendResponseHeaders(200, res.length());
             OutputStream os = exchange.getResponseBody();
-            os.write(resp.getBytes());
+            os.write(res.getBytes());
             os.close();
         }
-
 
         private void handlePosSse(HttpExchange exchange) throws IOException {
             MinecraftClient client = MinecraftClient.getInstance();
@@ -155,11 +160,14 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
             setHeaders(exchange);
 
-            Headers respHeaders = exchange.getResponseHeaders();
-            respHeaders.set("Content-Type", "text/event-stream");
-            respHeaders.set("Connection", "keep-alive");
-            respHeaders.set("Transfer-Encoding", "chunked");
+            Headers resHeaders = exchange.getResponseHeaders();
+            resHeaders.set("Content-Type", "text/event-stream");
+            resHeaders.set("Connection", "keep-alive");
+            resHeaders.set("Transfer-Encoding", "chunked");
             exchange.sendResponseHeaders(200, 0);
+
+            String res = "data: " + client.player.getPos().toString() + "\n\n";
+            exchange.getResponseBody().write(res.getBytes());
 
             modInstance.posSseExchanges.add(exchange);
         }
