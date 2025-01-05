@@ -89,14 +89,23 @@ public class MCLocalAPIClient implements ClientModInitializer {
         public void handle(HttpExchange exchange) throws IOException {
             String method = exchange.getRequestMethod();
             String path = exchange.getRequestURI().getPath();
+            if (!path.endsWith("/")) {
+                path += "/";
+            }
             String id = method + " " + path;
 
+            if (!config.enableEndpointPos() && path.startsWith("/pos/")) {
+                exchange.sendResponseHeaders(403, 0);
+                exchange.getResponseBody().close();
+                return;
+            }
+
             switch (id) {
-                case "GET /pos":
+                case "GET /pos/":
                     handlePos(exchange);
                     break;
 
-                case "GET /pos/sse":
+                case "GET /pos/sse/":
                     handlePosSse(exchange);
                     break;
 
@@ -139,7 +148,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
             if (client.player == null) {
                 exchange.sendResponseHeaders(503, 0);
-                exchange.close();
+                exchange.getResponseBody().close();
                 return;
             }
 

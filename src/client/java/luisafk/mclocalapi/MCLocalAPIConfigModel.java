@@ -17,5 +17,6 @@ public class MCLocalAPIConfigModel {
     public boolean enableCors = true;
 
     @SectionHeader("pos")
+    public boolean enableEndpointPos = false;
     public boolean posSseClose = true;
 }
