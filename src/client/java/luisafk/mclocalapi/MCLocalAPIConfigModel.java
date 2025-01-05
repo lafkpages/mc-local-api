@@ -14,6 +14,7 @@ public class MCLocalAPIConfigModel {
     @RestartRequired
     @RangeConstraint(min = 1025, max = 65535)
     public int port = 25566;
+    public boolean autoStart = true;
     public boolean enableCors = true;
 
     @SectionHeader("pos")

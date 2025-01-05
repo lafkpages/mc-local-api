@@ -32,7 +32,9 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        startServer();
+        if (config.autoStart()) {
+            startServer();
+        }
 
         ClientTickEvents.START_CLIENT_TICK.register((minecraftClient) -> {
             if (minecraftClient.player == null) {
