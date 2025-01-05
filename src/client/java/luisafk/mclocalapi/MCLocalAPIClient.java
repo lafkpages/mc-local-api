@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,26 +27,12 @@ public class MCLocalAPIClient implements ClientModInitializer {
     HttpServer server;
     Handler handler;
 
+    Vec3d lastPos = new Vec3d(0, 0, 0);
     ArrayList<HttpExchange> posSseExchanges = new ArrayList<>();
 
     @Override
     public void onInitializeClient() {
-        try {
-            server = HttpServer.create(new InetSocketAddress(config.port()), 0);
-        } catch (IOException e) {
-            logger.error("Failed to start MC Local API server", e);
-            return;
-        }
-
-        handler = new Handler(this);
-        server.createContext("/", handler);
-
-        server.setExecutor(null);
-        server.start();
-
-        logger.info("MC Local API server started on {}", server.getAddress());
-
-        AtomicReference<Vec3d> lastPos = new AtomicReference<>(new Vec3d(0, 0, 0));
+        startServer();
 
         ClientTickEvents.START_CLIENT_TICK.register((minecraftClient) -> {
             if (minecraftClient.player == null) {
@@ -60,8 +45,8 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
             Vec3d pos = minecraftClient.player.getPos();
 
-            if (lastPos.get().distanceTo(pos) > config.posSseDistanceThreshold()) {
-                lastPos.set(pos);
+            if (lastPos.distanceTo(pos) > config.posSseDistanceThreshold()) {
+                lastPos = pos;
 
                 if (posSseExchanges.isEmpty()) {
                     return;
@@ -83,6 +68,41 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 });
             }
         });
+    }
+
+    private void startServer() {
+        if (server != null) {
+            throw new IllegalStateException("MC Local API server is already running");
+        }
+
+        try {
+            server = HttpServer.create(new InetSocketAddress(config.port()), 0);
+        } catch (IOException e) {
+            logger.error("Failed to start MC Local API server", e);
+            return;
+        }
+
+        handler = new Handler(this);
+        server.createContext("/", handler);
+
+        server.setExecutor(null);
+        server.start();
+
+        logger.info("MC Local API server started on {}", server.getAddress());
+    }
+
+    private void stopServer(int delay) {
+        if (server == null) {
+            throw new IllegalStateException("MC Local API server is not running");
+        }
+
+        server.stop(delay);
+        server = null;
+
+        posSseExchanges.clear();
+
+        logger.info("MC Local API server stopped");
+
     }
 
     static class Handler implements HttpHandler {
