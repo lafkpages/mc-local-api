@@ -2,6 +2,7 @@ package luisafk.mclocalapi;
 
 import io.wispforest.owo.config.annotation.Config;
 import io.wispforest.owo.config.annotation.Modmenu;
+import io.wispforest.owo.config.annotation.PredicateConstraint;
 import io.wispforest.owo.config.annotation.RangeConstraint;
 import io.wispforest.owo.config.annotation.RestartRequired;
 import io.wispforest.owo.config.annotation.SectionHeader;
@@ -20,5 +21,10 @@ public class MCLocalAPIConfigModel {
     @SectionHeader("pos")
     public boolean enableEndpointPos = false;
     public boolean posSseClose = true;
+    @PredicateConstraint("nonNegative")
     public double posSseDistanceThreshold = 1;
+
+    public static boolean nonNegative(double value) {
+        return value >= 0;
+    }
 }
