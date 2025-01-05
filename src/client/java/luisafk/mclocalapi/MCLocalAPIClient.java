@@ -8,14 +8,19 @@ import java.util.ArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.mojang.brigadier.Command;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec3d;
 
 public class MCLocalAPIClient implements ClientModInitializer {
@@ -35,6 +40,24 @@ public class MCLocalAPIClient implements ClientModInitializer {
         if (config.autoStart()) {
             startServer();
         }
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+            dispatcher.register(ClientCommandManager.literal("startserver").executes(context -> {
+                startServer();
+                context.getSource()
+                        .sendFeedback(Text.literal("MC Local API server started").formatted(Formatting.GREEN));
+                return Command.SINGLE_SUCCESS;
+            }));
+        });
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+            dispatcher.register(ClientCommandManager.literal("stopserver").executes(context -> {
+                stopServer();
+                context.getSource()
+                        .sendFeedback(Text.literal("MC Local API server stopped").formatted(Formatting.YELLOW));
+                return Command.SINGLE_SUCCESS;
+            }));
+        });
 
         ClientTickEvents.START_CLIENT_TICK.register((minecraftClient) -> {
             if (minecraftClient.player == null) {
@@ -93,12 +116,12 @@ public class MCLocalAPIClient implements ClientModInitializer {
         logger.info("MC Local API server started on {}", server.getAddress());
     }
 
-    private void stopServer(int delay) {
+    private void stopServer() {
         if (server == null) {
             throw new IllegalStateException("MC Local API server is not running");
         }
 
-        server.stop(delay);
+        server.stop(0);
         server = null;
 
         posSseExchanges.clear();
