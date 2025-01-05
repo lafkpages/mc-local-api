@@ -96,7 +96,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
                     handlePos(exchange);
                     break;
 
-                case "GET /pos-sse":
+                case "GET /pos/sse":
                     handlePosSse(exchange);
                     break;
 

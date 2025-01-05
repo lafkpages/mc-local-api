@@ -4,5 +4,5 @@
   "text.config.mc-local-api.option.enableCors": "Enable CORS",
 
   "text.config.mc-local-api.section.pos": "Endpoint: /pos",
-  "text.config.mc-local-api.option.posSseClose": "Close /pos-sse when player disconnects"
+  "text.config.mc-local-api.option.posSseClose": "Close /pos/sse when player disconnects"
 }
