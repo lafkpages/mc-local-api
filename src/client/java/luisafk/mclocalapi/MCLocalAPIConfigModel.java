@@ -19,4 +19,5 @@ public class MCLocalAPIConfigModel {
     @SectionHeader("pos")
     public boolean enableEndpointPos = false;
     public boolean posSseClose = true;
+    public double posSseDistanceThreshold = 1;
 }

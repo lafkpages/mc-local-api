@@ -59,7 +59,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
             Vec3d pos = minecraftClient.player.getPos();
 
-            if (!lastPos.get().equals(pos)) {
+            if (lastPos.get().distanceTo(pos) > config.posSseDistanceThreshold()) {
                 String resp = "data: " + pos.toString() + "\n\n";
                 lastPos.set(pos);
 
