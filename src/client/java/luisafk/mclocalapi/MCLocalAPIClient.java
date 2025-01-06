@@ -164,6 +164,12 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            if (client.player == null) {
+                exchange.sendResponseHeaders(503, 0);
+                exchange.getResponseBody().close();
+                return;
+            }
+
             String method = exchange.getRequestMethod();
             String path = exchange.getRequestURI().getPath();
             if (!path.endsWith("/")) {
@@ -180,6 +186,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
             switch (id) {
                 case "GET /pos/":
                     handlePos(exchange);
+                    break;
+
+                case "GET /pos/world/":
+                    handlePosWorld(exchange);
                     break;
 
                 case "GET /pos/sse/":
@@ -201,16 +211,9 @@ public class MCLocalAPIClient implements ClientModInitializer {
         }
 
         private void handlePos(HttpExchange exchange) throws IOException {
-            MinecraftClient client = MinecraftClient.getInstance();
-
-            if (client.player == null) {
-                exchange.sendResponseHeaders(503, 0);
-                exchange.getResponseBody().close();
-                return;
-            }
-
             setHeaders(exchange);
 
+            MinecraftClient client = MinecraftClient.getInstance();
             String res = client.player.getPos().toString();
 
             exchange.sendResponseHeaders(200, res.length());
@@ -219,15 +222,20 @@ public class MCLocalAPIClient implements ClientModInitializer {
             os.close();
         }
 
-        private void handlePosSse(HttpExchange exchange) throws IOException {
+        private void handlePosWorld(HttpExchange exchange) throws IOException {
+            setHeaders(exchange);
+
             MinecraftClient client = MinecraftClient.getInstance();
+            Identifier world = client.world.getRegistryKey().getValue();
+            String res = world.toString();
 
-            if (client.player == null) {
-                exchange.sendResponseHeaders(503, 0);
-                exchange.getResponseBody().close();
-                return;
-            }
+            exchange.sendResponseHeaders(200, res.length());
+            OutputStream os = exchange.getResponseBody();
+            os.write(res.getBytes());
+            os.close();
+        }
 
+        private void handlePosSse(HttpExchange exchange) throws IOException {
             setHeaders(exchange);
 
             Headers resHeaders = exchange.getResponseHeaders();
@@ -236,6 +244,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
             resHeaders.set("Transfer-Encoding", "chunked");
             exchange.sendResponseHeaders(200, 0);
 
+            MinecraftClient client = MinecraftClient.getInstance();
             String res = "data: " + client.player.getPos().toString() + "\n\n";
             exchange.getResponseBody().write(res.getBytes());
 
