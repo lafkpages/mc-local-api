@@ -164,6 +164,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            MinecraftClient client = MinecraftClient.getInstance();
             if (client.player == null) {
                 exchange.sendResponseHeaders(503, 0);
                 exchange.getResponseBody().close();
