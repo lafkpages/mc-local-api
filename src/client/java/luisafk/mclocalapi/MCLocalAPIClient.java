@@ -21,6 +21,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 
 public class MCLocalAPIClient implements ClientModInitializer {
@@ -33,6 +34,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
     Handler handler;
 
     Vec3d lastPos = new Vec3d(0, 0, 0);
+    Identifier lastWorld;
     ArrayList<HttpExchange> posSseExchanges = new ArrayList<>();
 
     @Override
@@ -68,29 +70,52 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 return;
             }
 
+            boolean hasSseExchanges = !posSseExchanges.isEmpty();
+
             Vec3d pos = minecraftClient.player.getPos();
 
             if (lastPos.distanceTo(pos) > config.posSseDistanceThreshold()) {
                 lastPos = pos;
 
-                if (posSseExchanges.isEmpty()) {
-                    return;
+                if (hasSseExchanges) {
+                    String res = "data: " + pos.toString() + "\n\n";
+
+                    logger.info("Sending pos update: {}", pos);
+
+                    posSseExchanges.forEach(exchange -> {
+                        OutputStream os = exchange.getResponseBody();
+                        try {
+                            os.write(res.getBytes());
+                            os.flush();
+                        } catch (IOException e) {
+                            logger.error("Failed to write SSE response", e);
+                            exchange.close();
+                        }
+                    });
                 }
+            }
 
-                String res = "data: " + pos.toString() + "\n\n";
+            Identifier world = minecraftClient.world.getRegistryKey().getValue();
 
-                logger.info("Sending pos update: {}", pos);
+            if (lastWorld != world) {
+                lastWorld = world;
 
-                posSseExchanges.forEach(exchange -> {
-                    OutputStream os = exchange.getResponseBody();
-                    try {
-                        os.write(res.getBytes());
-                        os.flush();
-                    } catch (IOException e) {
-                        logger.error("Failed to write SSE response", e);
-                        exchange.close();
-                    }
-                });
+                if (hasSseExchanges) {
+                    String res = "event: changeworld\ndata: " + world + "\n\n";
+
+                    logger.info("Sending world change: {}", world);
+
+                    posSseExchanges.forEach(exchange -> {
+                        OutputStream os = exchange.getResponseBody();
+                        try {
+                            os.write(res.getBytes());
+                            os.flush();
+                        } catch (IOException e) {
+                            logger.error("Failed to write SSE response", e);
+                            exchange.close();
+                        }
+                    });
+                }
             }
         });
     }
