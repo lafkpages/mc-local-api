@@ -18,6 +18,8 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.Version;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -28,7 +30,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
     public static final luisafk.mclocalapi.MCLocalAPIConfig config = luisafk.mclocalapi.MCLocalAPIConfig
             .createAndLoad();
 
-    Logger logger = LoggerFactory.getLogger("mc-local-api");
+    public static final Logger logger = LoggerFactory.getLogger("mc-local-api");
+    public static final Version modVersion = FabricLoader.getInstance().getModContainer("mc-local-api").get()
+            .getMetadata()
+            .getVersion();
 
     HttpServer server;
     Handler handler;
@@ -164,11 +169,12 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.player == null) {
-                exchange.sendResponseHeaders(503, 0);
-                exchange.getResponseBody().close();
-                return;
+            Headers headers = exchange.getResponseHeaders();
+            headers.set("Server", "MC Local API v" + modVersion);
+
+            if (config.enableCors()) {
+                headers.set("Access-Control-Allow-Origin", "*");
+                headers.set("Access-Control-Allow-Methods", "GET");
             }
 
             String method = exchange.getRequestMethod();
@@ -185,6 +191,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
             }
 
             switch (id) {
+                case "GET /":
+                    handleRoot(exchange);
+                    break;
+
                 case "GET /pos/":
                     handlePos(exchange);
                     break;
@@ -203,41 +213,59 @@ public class MCLocalAPIClient implements ClientModInitializer {
             }
         }
 
-        private void setHeaders(HttpExchange exchange) {
-            if (config.enableCors()) {
-                Headers headers = exchange.getResponseHeaders();
-                headers.set("Access-Control-Allow-Origin", "*");
-                headers.set("Access-Control-Allow-Methods", "GET");
+        private boolean requirePlayer(HttpExchange exchange) throws IOException {
+            MinecraftClient client = MinecraftClient.getInstance();
+
+            if (client.player == null) {
+                exchange.sendResponseHeaders(503, 0);
+                exchange.close();
+                return true;
             }
+
+            return false;
+        }
+
+        private void handleRoot(HttpExchange exchange) throws IOException {
+
+            String res = "MC Local API v" + modVersion + " running";
+
+            exchange.sendResponseHeaders(200, res.length());
+            exchange.getResponseBody().write(res.getBytes());
+            exchange.close();
         }
 
         private void handlePos(HttpExchange exchange) throws IOException {
-            setHeaders(exchange);
+            if (requirePlayer(exchange)) {
+                return;
+            }
 
             MinecraftClient client = MinecraftClient.getInstance();
             String res = client.player.getPos().toString();
 
             exchange.sendResponseHeaders(200, res.length());
-            OutputStream os = exchange.getResponseBody();
-            os.write(res.getBytes());
-            os.close();
+            exchange.getResponseBody().write(res.getBytes());
+            exchange.close();
         }
 
         private void handlePosWorld(HttpExchange exchange) throws IOException {
-            setHeaders(exchange);
+            if (requirePlayer(exchange)) {
+                return;
+            }
 
             MinecraftClient client = MinecraftClient.getInstance();
             Identifier world = client.world.getRegistryKey().getValue();
             String res = world.toString();
 
             exchange.sendResponseHeaders(200, res.length());
-            OutputStream os = exchange.getResponseBody();
-            os.write(res.getBytes());
-            os.close();
+            exchange.getResponseBody().write(res.getBytes());
+            exchange.close();
+
         }
 
         private void handlePosSse(HttpExchange exchange) throws IOException {
-            setHeaders(exchange);
+            if (requirePlayer(exchange)) {
+                return;
+            }
 
             Headers resHeaders = exchange.getResponseHeaders();
             resHeaders.set("Content-Type", "text/event-stream");
