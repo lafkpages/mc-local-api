@@ -3,7 +3,6 @@
   "text.config.mc-local-api.option.port": "Port number",
   "text.config.mc-local-api.option.autoStart": "Auto start the API server",
   "text.config.mc-local-api.option.enableCors": "Enable CORS",
-
   "text.config.mc-local-api.section.pos": "Endpoint: /pos",
   "text.config.mc-local-api.option.enableEndpointPos": "Enable /pos endpoint",
   "text.config.mc-local-api.option.posSseClose": "Close /pos/sse when player disconnects",

@@ -19,7 +19,9 @@
   "icon": "assets/mc-local-api/icon.png",
   "environment": "*",
   "entrypoints": {
-    "client": ["luisafk.mclocalapi.MCLocalAPIClient"]
+    "client": [
+      "luisafk.mclocalapi.MCLocalAPIClient"
+    ]
   },
   "depends": {
     "fabricloader": ">=0.16.10",
