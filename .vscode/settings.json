@@ -1,6 +1,6 @@
 {
   "java.compile.nullAnalysis.mode": "automatic",
   "java.saveActions.organizeImports": true,
-  "java.configuration.updateBuildConfiguration": "interactive",
+  "java.configuration.updateBuildConfiguration": "automatic",
   "cSpell.words": ["luisafk", "mclocalapi", "javalin"]
 }
