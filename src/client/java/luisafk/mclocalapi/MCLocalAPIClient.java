@@ -18,6 +18,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.Version;
+import net.minecraft.SharedConstants;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -112,8 +113,9 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
             // Add a custom header to all responses
             // serverConfig.http.addResponseHeader("Server", "MC Local API v" + modVersion);
-            serverConfig.bundledPlugins.enableGlobalHeaders(headers -> {
-                headers.getHeaders().put("Server", "MC Local API v" + modVersion);
+            serverConfig.bundledPlugins.enableGlobalHeaders(globalHeaders -> {
+                globalHeaders.getHeaders().put("Server", "MC Local API v" + modVersion + ", Minecraft "
+                        + SharedConstants.getGameVersion().getId());
             });
         }).start(config.port());
 
@@ -143,7 +145,9 @@ public class MCLocalAPIClient implements ClientModInitializer {
         protectEndpoint("/chat/command", () -> config.enableEndpointChatCommand());
 
         server.get("/", ctx -> {
-            ctx.result("MC Local API v" + modVersion + " running");
+            ctx.result("MC Local API v" + modVersion + " running on Minecraft "
+                    + MinecraftClient.getInstance().getGameVersion() + " "
+                    + SharedConstants.getGameVersion().getName());
         });
 
         server.get("/pos", this::handlePos);
