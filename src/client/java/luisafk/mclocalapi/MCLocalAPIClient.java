@@ -185,25 +185,25 @@ public class MCLocalAPIClient implements ClientModInitializer {
             String id = method + " " + path;
 
             if (!config.enableEndpointPos() && path.startsWith("/pos/")) {
-                exchange.sendResponseHeaders(403, 0);
+                exchange.sendResponseHeaders(403, -1);
                 exchange.getResponseBody().close();
                 return;
             }
 
             if (!config.enableEndpointChat() && path.startsWith("/chat/")) {
-                exchange.sendResponseHeaders(403, 0);
+                exchange.sendResponseHeaders(403, -1);
                 exchange.getResponseBody().close();
                 return;
             }
 
             if (!config.enableEndpointChatCommand() && path.startsWith("/chat/command/")) {
-                exchange.sendResponseHeaders(403, 0);
+                exchange.sendResponseHeaders(403, -1);
                 exchange.getResponseBody().close();
                 return;
             }
 
             if (!config.enableEndpointScreen() && path.startsWith("/screen/")) {
-                exchange.sendResponseHeaders(403, 0);
+                exchange.sendResponseHeaders(403, -1);
                 exchange.getResponseBody().close();
                 return;
             }
@@ -238,7 +238,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
                     break;
 
                 default:
-                    exchange.sendResponseHeaders(404, 0);
+                    exchange.sendResponseHeaders(404, -1);
                     exchange.getResponseBody().close();
             }
         }
@@ -247,7 +247,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
             MinecraftClient client = MinecraftClient.getInstance();
 
             if (client.player == null) {
-                exchange.sendResponseHeaders(503, 0);
+                exchange.sendResponseHeaders(503, -1);
                 exchange.close();
                 return true;
             }
@@ -318,14 +318,14 @@ public class MCLocalAPIClient implements ClientModInitializer {
             String message = new String(exchange.getRequestBody().readAllBytes());
 
             if (message.isEmpty()) {
-                exchange.sendResponseHeaders(400, 0);
+                exchange.sendResponseHeaders(400, -1);
                 exchange.close();
                 return;
             }
 
             client.player.networkHandler.sendChatMessage(message);
 
-            exchange.sendResponseHeaders(200, 0);
+            exchange.sendResponseHeaders(200, -1);
             exchange.close();
         }
 
@@ -338,14 +338,14 @@ public class MCLocalAPIClient implements ClientModInitializer {
             String command = new String(exchange.getRequestBody().readAllBytes());
 
             if (command.isEmpty()) {
-                exchange.sendResponseHeaders(400, 0);
+                exchange.sendResponseHeaders(400, -1);
                 exchange.close();
                 return;
             }
 
             client.player.networkHandler.sendChatCommand(command);
 
-            exchange.sendResponseHeaders(200, 0);
+            exchange.sendResponseHeaders(200, -1);
             exchange.close();
         }
 
@@ -357,7 +357,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
             MinecraftClient client = MinecraftClient.getInstance();
 
             if (client.currentScreen == null) {
-                exchange.sendResponseHeaders(200, 0);
+                exchange.sendResponseHeaders(204, -1);
                 exchange.close();
                 return;
             }
