@@ -303,7 +303,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 return;
             }
 
-            client.player.sendMessage(Text.of(message));
+            client.player.networkHandler.sendChatMessage(message);
 
             exchange.sendResponseHeaders(200, 0);
             exchange.close();
