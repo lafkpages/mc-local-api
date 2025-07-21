@@ -355,7 +355,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
             }
 
             MinecraftClient client = MinecraftClient.getInstance();
-            String res = client.currentScreen.getTitle().toString();
+            String res = client.currentScreen.getTitle().getString();
 
             exchange.sendResponseHeaders(200, res.length());
             exchange.getResponseBody().write(res.getBytes());
