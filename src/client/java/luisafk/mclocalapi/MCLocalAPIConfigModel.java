@@ -26,6 +26,7 @@ public class MCLocalAPIConfigModel {
 
     @SectionHeader("chat")
     public boolean enableEndpointChat = false;
+    public boolean enableEndpointChatCommand = false;
 
     public static boolean nonNegative(double value) {
         return value >= 0;

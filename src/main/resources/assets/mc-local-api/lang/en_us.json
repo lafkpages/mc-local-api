@@ -10,5 +10,6 @@
   "text.config.mc-local-api.option.posSseDistanceThreshold": "Distance threshold (m) for sending updates to /pos/sse",
 
   "text.config.mc-local-api.section.chat": "Endpoint: /chat",
-  "text.config.mc-local-api.option.enableEndpointChat": "Enable /chat endpoint"
+  "text.config.mc-local-api.option.enableEndpointChat": "Enable /chat endpoint",
+  "text.config.mc-local-api.option.enableEndpointChatCommand": "Enable /chat/command endpoint"
 }
