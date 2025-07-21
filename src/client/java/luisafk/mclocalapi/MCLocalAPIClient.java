@@ -1,19 +1,18 @@
 package luisafk.mclocalapi;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mojang.brigadier.Command;
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
 
+import io.javalin.Javalin;
+import io.javalin.http.BadRequestResponse;
+import io.javalin.http.Context;
+import io.javalin.http.ServiceUnavailableResponse;
+import io.javalin.http.sse.SseClient;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -35,12 +34,11 @@ public class MCLocalAPIClient implements ClientModInitializer {
             .getMetadata()
             .getVersion();
 
-    HttpServer server;
-    Handler handler;
+    private Javalin server;
 
     Vec3d lastPos = new Vec3d(0, 0, 0);
     Identifier lastWorld;
-    ArrayList<HttpExchange> posSseExchanges = new ArrayList<>();
+    ArrayList<SseClient> posSseClients = new ArrayList<>();
 
     @Override
     public void onInitializeClient() {
@@ -69,35 +67,20 @@ public class MCLocalAPIClient implements ClientModInitializer {
         ClientTickEvents.START_CLIENT_TICK.register((minecraftClient) -> {
             if (minecraftClient.player == null) {
                 if (config.posSseClose()) {
-                    posSseExchanges.forEach(HttpExchange::close);
-                    posSseExchanges.clear();
+                    posSseClients.forEach(SseClient::close);
+                    posSseClients.clear();
                 }
                 return;
             }
-
-            boolean hasSseExchanges = !posSseExchanges.isEmpty();
 
             Vec3d pos = minecraftClient.player.getPos();
 
             if (lastPos.distanceTo(pos) > config.posSseDistanceThreshold()) {
                 lastPos = pos;
 
-                if (hasSseExchanges) {
-                    String res = "data: " + pos.toString() + "\n\n";
-
-                    logger.info("Sending pos update: {}", pos);
-
-                    posSseExchanges.forEach(exchange -> {
-                        OutputStream os = exchange.getResponseBody();
-                        try {
-                            os.write(res.getBytes());
-                            os.flush();
-                        } catch (IOException e) {
-                            logger.error("Failed to write SSE response", e);
-                            exchange.close();
-                        }
-                    });
-                }
+                posSseClients.forEach(sse -> {
+                    sse.sendEvent(pos.toString());
+                });
             }
 
             Identifier world = minecraftClient.world.getRegistryKey().getValue();
@@ -105,22 +88,9 @@ public class MCLocalAPIClient implements ClientModInitializer {
             if (lastWorld != world) {
                 lastWorld = world;
 
-                if (hasSseExchanges) {
-                    String res = "event: changeworld\ndata: " + world + "\n\n";
-
-                    logger.info("Sending world change: {}", world);
-
-                    posSseExchanges.forEach(exchange -> {
-                        OutputStream os = exchange.getResponseBody();
-                        try {
-                            os.write(res.getBytes());
-                            os.flush();
-                        } catch (IOException e) {
-                            logger.error("Failed to write SSE response", e);
-                            exchange.close();
-                        }
-                    });
-                }
+                posSseClients.forEach(sse -> {
+                    sse.sendEvent("changeworld", world);
+                });
             }
         });
     }
@@ -130,20 +100,28 @@ public class MCLocalAPIClient implements ClientModInitializer {
             throw new IllegalStateException("MC Local API server is already running");
         }
 
-        try {
-            server = HttpServer.create(new InetSocketAddress(config.port()), 0);
-        } catch (IOException e) {
-            logger.error("Failed to start MC Local API server", e);
-            return;
-        }
+        // Create and configure the Javalin server
+        server = Javalin.create(serverConfig -> {
+            // Enable CORS if configured
+            if (config.enableCors()) {
+                serverConfig.bundledPlugins.enableCors(cors -> {
+                    cors.addRule(it -> {
+                        it.anyHost();
+                    });
+                });
+            }
 
-        handler = new Handler(this);
-        server.createContext("/", handler);
+            // Add a custom header to all responses
+            // serverConfig.http.addResponseHeader("Server", "MC Local API v" + modVersion);
+            serverConfig.bundledPlugins.enableGlobalHeaders(headers -> {
+                headers.getHeaders().put("Server", "MC Local API v" + modVersion);
+            });
+        }).start(config.port());
 
-        server.setExecutor(null);
-        server.start();
+        // Define your routes
+        defineRoutes();
 
-        logger.info("MC Local API server started on {}", server.getAddress());
+        logger.info("MC Local API server started on port {}", server.port());
     }
 
     private void stopServer() {
@@ -151,225 +129,112 @@ public class MCLocalAPIClient implements ClientModInitializer {
             throw new IllegalStateException("MC Local API server is not running");
         }
 
-        server.stop(0);
+        server.stop();
         server = null;
 
-        posSseExchanges.clear();
+        posSseClients.clear();
 
         logger.info("MC Local API server stopped");
-
     }
 
-    static class Handler implements HttpHandler {
-        MCLocalAPIClient modInstance;
+    private void defineRoutes() {
+        protectEndpoint("/pos/*", () -> config.enableEndpointPos());
+        protectEndpoint("/screen/*", () -> config.enableEndpointScreen());
+        protectEndpoint("/chat", () -> config.enableEndpointChat());
+        protectEndpoint("/chat/command", () -> config.enableEndpointChatCommand());
 
-        public Handler(MCLocalAPIClient mcLocalAPIClient) {
-            modInstance = mcLocalAPIClient;
-        }
+        server.get("/", ctx -> {
+            ctx.result("MC Local API v" + modVersion + " running");
+        });
 
-        @Override
-        public void handle(HttpExchange exchange) throws IOException {
-            Headers headers = exchange.getResponseHeaders();
-            headers.set("Server", "MC Local API v" + modVersion);
+        server.get("/pos", this::handlePos);
+        server.get("/pos/world", this::handlePosWorld);
+        server.sse("/pos/sse", this::handlePosSse);
+        server.get("/screen", this::handleScreen);
+        server.post("/chat", this::handleChat);
+        server.post("/chat/command", this::handleChatCommand);
+    }
 
-            if (config.enableCors()) {
-                headers.set("Access-Control-Allow-Origin", "*");
-                headers.set("Access-Control-Allow-Methods", "GET");
+    private void protectEndpoint(String path, Supplier<Boolean> enabledCheck) {
+        server.before(path, ctx -> {
+            if (!enabledCheck.get()) {
+                throw new EndpointDisabledResponse();
             }
+        });
+    }
 
-            String method = exchange.getRequestMethod();
-            String path = exchange.getRequestURI().getPath();
-            if (!path.endsWith("/")) {
-                path += "/";
-            }
-            String id = method + " " + path;
+    private void requirePlayer() {
+        MinecraftClient client = MinecraftClient.getInstance();
 
-            if (!config.enableEndpointPos() && path.startsWith("/pos/")) {
-                exchange.sendResponseHeaders(403, -1);
-                exchange.getResponseBody().close();
-                return;
-            }
-
-            if (!config.enableEndpointChat() && path.startsWith("/chat/")) {
-                exchange.sendResponseHeaders(403, -1);
-                exchange.getResponseBody().close();
-                return;
-            }
-
-            if (!config.enableEndpointChatCommand() && path.startsWith("/chat/command/")) {
-                exchange.sendResponseHeaders(403, -1);
-                exchange.getResponseBody().close();
-                return;
-            }
-
-            if (!config.enableEndpointScreen() && path.startsWith("/screen/")) {
-                exchange.sendResponseHeaders(403, -1);
-                exchange.getResponseBody().close();
-                return;
-            }
-
-            switch (id) {
-                case "GET /":
-                    handleRoot(exchange);
-                    break;
-
-                case "GET /pos/":
-                    handlePos(exchange);
-                    break;
-
-                case "GET /pos/world/":
-                    handlePosWorld(exchange);
-                    break;
-
-                case "GET /pos/sse/":
-                    handlePosSse(exchange);
-                    break;
-
-                case "POST /chat/":
-                    handleChat(exchange);
-                    break;
-
-                case "POST /chat/command/":
-                    handleChatCommand(exchange);
-                    break;
-
-                case "GET /screen/":
-                    handleScreen(exchange);
-                    break;
-
-                default:
-                    exchange.sendResponseHeaders(404, -1);
-                    exchange.getResponseBody().close();
-            }
-        }
-
-        private boolean requirePlayer(HttpExchange exchange) throws IOException {
-            MinecraftClient client = MinecraftClient.getInstance();
-
-            if (client.player == null) {
-                exchange.sendResponseHeaders(503, -1);
-                exchange.close();
-                return true;
-            }
-
-            return false;
-        }
-
-        private void handleRoot(HttpExchange exchange) throws IOException {
-            String res = "MC Local API v" + modVersion + " running";
-
-            exchange.sendResponseHeaders(200, res.length());
-            exchange.getResponseBody().write(res.getBytes());
-            exchange.close();
-        }
-
-        private void handlePos(HttpExchange exchange) throws IOException {
-            if (requirePlayer(exchange)) {
-                return;
-            }
-
-            MinecraftClient client = MinecraftClient.getInstance();
-            String res = client.player.getPos().toString();
-
-            exchange.sendResponseHeaders(200, res.length());
-            exchange.getResponseBody().write(res.getBytes());
-            exchange.close();
-        }
-
-        private void handlePosWorld(HttpExchange exchange) throws IOException {
-            if (requirePlayer(exchange)) {
-                return;
-            }
-
-            MinecraftClient client = MinecraftClient.getInstance();
-            Identifier world = client.world.getRegistryKey().getValue();
-            String res = world.toString();
-
-            exchange.sendResponseHeaders(200, res.length());
-            exchange.getResponseBody().write(res.getBytes());
-            exchange.close();
-
-        }
-
-        private void handlePosSse(HttpExchange exchange) throws IOException {
-            if (requirePlayer(exchange)) {
-                return;
-            }
-
-            Headers resHeaders = exchange.getResponseHeaders();
-            resHeaders.set("Content-Type", "text/event-stream");
-            resHeaders.set("Connection", "keep-alive");
-            resHeaders.set("Transfer-Encoding", "chunked");
-            exchange.sendResponseHeaders(200, 0);
-
-            MinecraftClient client = MinecraftClient.getInstance();
-            String res = "data: " + client.player.getPos().toString() + "\n\n";
-            exchange.getResponseBody().write(res.getBytes());
-
-            modInstance.posSseExchanges.add(exchange);
-        }
-
-        private void handleChat(HttpExchange exchange) throws IOException {
-            if (requirePlayer(exchange)) {
-                return;
-            }
-
-            MinecraftClient client = MinecraftClient.getInstance();
-            String message = new String(exchange.getRequestBody().readAllBytes());
-
-            if (message.isEmpty()) {
-                exchange.sendResponseHeaders(400, -1);
-                exchange.close();
-                return;
-            }
-
-            client.player.networkHandler.sendChatMessage(message);
-
-            exchange.sendResponseHeaders(200, -1);
-            exchange.close();
-        }
-
-        private void handleChatCommand(HttpExchange exchange) throws IOException {
-            if (requirePlayer(exchange)) {
-                return;
-            }
-
-            MinecraftClient client = MinecraftClient.getInstance();
-            String command = new String(exchange.getRequestBody().readAllBytes());
-
-            if (command.isEmpty()) {
-                exchange.sendResponseHeaders(400, -1);
-                exchange.close();
-                return;
-            }
-
-            client.player.networkHandler.sendChatCommand(command);
-
-            exchange.sendResponseHeaders(200, -1);
-            exchange.close();
-        }
-
-        private void handleScreen(HttpExchange exchange) throws IOException {
-            if (requirePlayer(exchange)) {
-                return;
-            }
-
-            MinecraftClient client = MinecraftClient.getInstance();
-
-            if (client.currentScreen == null) {
-                exchange.sendResponseHeaders(204, -1);
-                exchange.close();
-                return;
-            }
-
-            byte[] res = client.currentScreen.getTitle().getString().getBytes();
-
-            Headers headers = exchange.getResponseHeaders();
-            headers.set("Content-Type", "text/plain; charset=UTF-8");
-
-            exchange.sendResponseHeaders(200, res.length);
-            exchange.getResponseBody().write(res);
-            exchange.close();
+        if (client.player == null) {
+            throw new ServiceUnavailableResponse("Player not available");
         }
     }
+
+    private void handlePos(Context ctx) {
+        requirePlayer();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        ctx.result(client.player.getPos().toString());
+    }
+
+    private void handlePosWorld(Context ctx) {
+        requirePlayer();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        Identifier world = client.world.getRegistryKey().getValue();
+        ctx.result(world.toString());
+    }
+
+    private void handlePosSse(SseClient sse) {
+        requirePlayer();
+
+        sse.keepAlive();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        sse.sendEvent(client.player.getPos().toString());
+
+        posSseClients.add(sse);
+        sse.onClose(() -> posSseClients.remove(sse));
+    }
+
+    private void handleChat(Context ctx) {
+        requirePlayer();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        String message = ctx.body();
+
+        if (message.isEmpty()) {
+            throw new BadRequestResponse("Message cannot be empty");
+        }
+
+        client.player.networkHandler.sendChatMessage(message);
+    }
+
+    private void handleChatCommand(Context ctx) {
+        requirePlayer();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        String command = ctx.body();
+
+        if (command.isEmpty()) {
+            throw new BadRequestResponse("Command cannot be empty");
+        }
+
+        client.player.networkHandler.sendChatCommand(command);
+    }
+
+    private void handleScreen(Context ctx) {
+        requirePlayer();
+
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        if (client.currentScreen == null) {
+            ctx.status(204);
+            return;
+        }
+
+        ctx.result(client.currentScreen.getTitle().getString());
+    }
+
 }
