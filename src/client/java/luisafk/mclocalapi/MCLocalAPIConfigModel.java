@@ -28,6 +28,9 @@ public class MCLocalAPIConfigModel {
     public boolean enableEndpointChat = false;
     public boolean enableEndpointChatCommand = false;
 
+    @SectionHeader("screen")
+    public boolean enableEndpointScreen = false;
+
     public static boolean nonNegative(double value) {
         return value >= 0;
     }

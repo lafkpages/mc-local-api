@@ -202,6 +202,12 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 return;
             }
 
+            if (!config.enableEndpointScreen() && path.startsWith("/screen/")) {
+                exchange.sendResponseHeaders(403, 0);
+                exchange.getResponseBody().close();
+                return;
+            }
+
             switch (id) {
                 case "GET /":
                     handleRoot(exchange);
@@ -225,6 +231,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
                 case "POST /chat/command/":
                     handleChatCommand(exchange);
+                    break;
+
+                case "GET /screen/":
+                    handleScreen(exchange);
                     break;
 
                 default:
@@ -336,6 +346,19 @@ public class MCLocalAPIClient implements ClientModInitializer {
             client.player.networkHandler.sendChatCommand(command);
 
             exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        }
+
+        private void handleScreen(HttpExchange exchange) throws IOException {
+            if (requirePlayer(exchange)) {
+                return;
+            }
+
+            MinecraftClient client = MinecraftClient.getInstance();
+            String res = client.currentScreen.getTitle().toString();
+
+            exchange.sendResponseHeaders(200, res.length());
+            exchange.getResponseBody().write(res.getBytes());
             exchange.close();
         }
     }

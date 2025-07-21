@@ -11,5 +11,8 @@
 
   "text.config.mc-local-api.section.chat": "Endpoint: /chat",
   "text.config.mc-local-api.option.enableEndpointChat": "Enable /chat endpoint",
-  "text.config.mc-local-api.option.enableEndpointChatCommand": "Enable /chat/command endpoint"
+  "text.config.mc-local-api.option.enableEndpointChatCommand": "Enable /chat/command endpoint",
+
+  "text.config.mc-local-api.section.screen": "Endpoint: /screen",
+  "text.config.mc-local-api.option.enableEndpointScreen": "Enable /screen endpoint"
 }
