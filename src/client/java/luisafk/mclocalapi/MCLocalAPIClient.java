@@ -11,7 +11,6 @@ import com.mojang.brigadier.Command;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import io.javalin.http.ServiceUnavailableResponse;
 import io.javalin.http.sse.SseClient;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -167,7 +166,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         MinecraftClient client = MinecraftClient.getInstance();
 
         if (client.player == null) {
-            throw new ServiceUnavailableResponse("Player not available");
+            throw new PlayerUnavailableResponse();
         }
     }
 
