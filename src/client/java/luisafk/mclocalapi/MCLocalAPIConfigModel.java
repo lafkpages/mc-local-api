@@ -24,6 +24,9 @@ public class MCLocalAPIConfigModel {
     @PredicateConstraint("nonNegative")
     public double posSseDistanceThreshold = 1;
 
+    @SectionHeader("chat")
+    public boolean enableEndpointChat = false;
+
     public static boolean nonNegative(double value) {
         return value >= 0;
     }

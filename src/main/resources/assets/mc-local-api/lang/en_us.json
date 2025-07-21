@@ -7,5 +7,8 @@
   "text.config.mc-local-api.section.pos": "Endpoint: /pos",
   "text.config.mc-local-api.option.enableEndpointPos": "Enable /pos endpoint",
   "text.config.mc-local-api.option.posSseClose": "Close /pos/sse when player disconnects",
-  "text.config.mc-local-api.option.posSseDistanceThreshold": "Distance threshold (m) for sending updates to /pos/sse"
+  "text.config.mc-local-api.option.posSseDistanceThreshold": "Distance threshold (m) for sending updates to /pos/sse",
+
+  "text.config.mc-local-api.section.chat": "Endpoint: /chat",
+  "text.config.mc-local-api.option.enableEndpointChat": "Enable /chat endpoint"
 }

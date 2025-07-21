@@ -190,6 +190,12 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 return;
             }
 
+            if (!config.enableEndpointChat() && path.startsWith("/chat/")) {
+                exchange.sendResponseHeaders(403, 0);
+                exchange.getResponseBody().close();
+                return;
+            }
+
             switch (id) {
                 case "GET /":
                     handleRoot(exchange);
@@ -205,6 +211,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
                 case "GET /pos/sse/":
                     handlePosSse(exchange);
+                    break;
+
+                case "POST /chat/":
+                    handleChat(exchange);
                     break;
 
                 default:
@@ -226,7 +236,6 @@ public class MCLocalAPIClient implements ClientModInitializer {
         }
 
         private void handleRoot(HttpExchange exchange) throws IOException {
-
             String res = "MC Local API v" + modVersion + " running";
 
             exchange.sendResponseHeaders(200, res.length());
@@ -278,6 +287,26 @@ public class MCLocalAPIClient implements ClientModInitializer {
             exchange.getResponseBody().write(res.getBytes());
 
             modInstance.posSseExchanges.add(exchange);
+        }
+
+        private void handleChat(HttpExchange exchange) throws IOException {
+            if (requirePlayer(exchange)) {
+                return;
+            }
+
+            MinecraftClient client = MinecraftClient.getInstance();
+            String message = new String(exchange.getRequestBody().readAllBytes());
+
+            if (message.isEmpty()) {
+                exchange.sendResponseHeaders(400, 0);
+                exchange.close();
+                return;
+            }
+
+            client.player.sendMessage(Text.of(message));
+
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
         }
     }
 }
