@@ -79,7 +79,12 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 lastPos = pos;
 
                 posSseClients.forEach(sse -> {
-                    sse.sendEvent(pos.toString());
+                    try {
+                        sse.sendEvent(pos.toString());
+                    } catch (Exception e) {
+                        logger.error("Error sending position update to SSE client", e);
+                        sse.close();
+                    }
                 });
             }
 
@@ -89,7 +94,12 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 lastWorld = world;
 
                 posSseClients.forEach(sse -> {
-                    sse.sendEvent("changeworld", world);
+                    try {
+                        sse.sendEvent("changeworld", world);
+                    } catch (Exception e) {
+                        logger.error("Error sending world update to SSE client", e);
+                        sse.close();
+                    }
                 });
             }
         });
