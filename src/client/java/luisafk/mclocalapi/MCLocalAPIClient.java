@@ -179,6 +179,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         protectEndpoint("/screen/*", () -> config.enableEndpointScreen());
         protectEndpoint("/chat", () -> config.enableEndpointChat());
         protectEndpoint("/chat/command", () -> config.enableEndpointChatCommand());
+        protectEndpoint("/xaero/*", () -> config.enableEndpointXaero());
 
         server.get("/", ctx -> {
             ctx.result("MC Local API v" + modVersion + " running on Minecraft "

@@ -31,6 +31,9 @@ public class MCLocalAPIConfigModel {
     @SectionHeader("screen")
     public boolean enableEndpointScreen = false;
 
+    @SectionHeader("xaero")
+    public boolean enableEndpointXaero = false;
+
     public static boolean nonNegative(double value) {
         return value >= 0;
     }
