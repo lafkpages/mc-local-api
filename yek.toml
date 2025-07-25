@@ -1,0 +1,1 @@
+ignore_patterns = ["gradlew", "gradlew.bat"]
