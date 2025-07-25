@@ -37,12 +37,13 @@ public class MCLocalAPIClient implements ClientModInitializer {
     public static final luisafk.mclocalapi.MCLocalAPIConfig config = luisafk.mclocalapi.MCLocalAPIConfig
             .createAndLoad();
 
+    public static final MinecraftClient mc = MinecraftClient.getInstance();
+    public static final FabricLoader fabricLoader = FabricLoader.getInstance();
+
     public static final Logger logger = LoggerFactory.getLogger("mc-local-api");
-    public static final Version modVersion = FabricLoader.getInstance().getModContainer("mc-local-api").get()
+    public static final Version modVersion = fabricLoader.getModContainer("mc-local-api").get()
             .getMetadata()
             .getVersion();
-
-    public static final MinecraftClient mc = MinecraftClient.getInstance();
 
     private Javalin server;
 
