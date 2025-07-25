@@ -133,7 +133,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
             // serverConfig.http.addResponseHeader("Server", "MC Local API v" + modVersion);
             serverConfig.bundledPlugins.enableGlobalHeaders(globalHeaders -> {
                 globalHeaders.getHeaders().put("Server", "MC Local API v" + modVersion + ", Minecraft "
-                        + SharedConstants.getGameVersion().getId());
+                        + SharedConstants.getGameVersion().id());
             });
         }).start(config.port());
 
@@ -165,7 +165,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         server.get("/", ctx -> {
             ctx.result("MC Local API v" + modVersion + " running on Minecraft "
                     + mc.getGameVersion() + " "
-                    + SharedConstants.getGameVersion().getName());
+                    + SharedConstants.getGameVersion().name());
         });
 
         server.get("/pos", this::handlePos);
