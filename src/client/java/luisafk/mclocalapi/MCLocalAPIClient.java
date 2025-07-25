@@ -1,7 +1,9 @@
 package luisafk.mclocalapi;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
@@ -243,26 +245,19 @@ public class MCLocalAPIClient implements ClientModInitializer {
     }
 
     private void handleGetMods(Context ctx) {
-        // DTO
-        record ModInfo(String id, String version) {
-        }
-
-        // Create a list to hold our simplified mod information
-        List<ModInfo> mods = new ArrayList<>();
+        // Create a map to hold mod information with mod ID as key and version as value
+        Map<String, String> mods = new HashMap<>();
 
         // Iterate over all loaded mods
         fabricLoader.getAllMods().forEach(modContainer -> {
             var metadata = modContainer.getMetadata();
 
-            // Create a new ModInfo object with just the id and version
-            // and add it to our list.
-            mods.add(new ModInfo(
-                    metadata.getId(),
-                    metadata.getVersion().getFriendlyString()));
+            // Add mod ID as key and version as value to the map
+            mods.put(metadata.getId(), metadata.getVersion().getFriendlyString());
         });
 
-        // Serialize our simple list of ModInfo objects to JSON.
-        // This will produce the desired { id, version }[] format.
+        // Serialize the map to JSON.
+        // This will produce the desired { [modId]: version } format.
         ctx.json(mods);
     }
 
