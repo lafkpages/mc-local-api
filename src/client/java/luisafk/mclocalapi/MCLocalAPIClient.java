@@ -194,6 +194,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         server.post("/chat", this::handleChat);
         server.post("/chat/command", this::handleChatCommand);
         server.get("/xaero/waypoints/sets", this::handleXaeroWaypointsSets);
+        server.post("/xaero/waypoints/sets/create", this::handleXaeroWaypointsSetsCreate);
     }
 
     private void protectEndpoint(String path, Supplier<Boolean> enabledCheck) {
@@ -286,5 +287,25 @@ public class MCLocalAPIClient implements ClientModInitializer {
         }
 
         ctx.json(allWaypoints);
+    }
+
+    private void handleXaeroWaypointsSetsCreate(Context ctx) {
+        MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
+
+        if (session == null) {
+            throw new ServiceUnavailableResponse("No Xaero's Minimap session available");
+        }
+
+        String setName = ctx.body();
+
+        if (setName.isEmpty()) {
+            throw new BadRequestResponse("Set name cannot be empty");
+        }
+
+        MinimapWorld world = session.getWorldManager().getCurrentWorld();
+
+        world.addWaypointSet(setName);
+
+        ctx.json(world.getWaypointSet(setName));
     }
 }
