@@ -29,6 +29,6 @@
   },
   "suggests": {
     "baritone": "1.11.2",
-    "xaeros-minimap": "25.2.0"
+    "xaerominimap": "25.2.0"
   }
 }
