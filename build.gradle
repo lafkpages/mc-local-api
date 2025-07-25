@@ -3,6 +3,15 @@ plugins {
     id 'maven-publish'
 }
 
+// Add this new configurations block
+configurations {
+    // This configuration will hold all the libraries we want to bundle into our mod
+    modShade
+
+    // Automatically add all `modImplementation` dependencies to our `modShade` configuration
+    modImplementation.extendsFrom(modShade)
+}
+
 version = project.mod_version
 group = project.maven_group
 
@@ -11,12 +20,6 @@ base {
 }
 
 repositories {
-    // Add repositories to retrieve artifacts from in here.
-    // You should only use this when depending on other mods because
-    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-    // See https://docs.gradle.org/current/userguide/declaring_repositories.html
-    // for more information about repositories.
-
     maven { url 'https://maven.wispforest.io/releases/' }
     maven {
         name = "Modrinth"
@@ -42,41 +45,29 @@ loom {
 }
 
 dependencies {
-    // To change the versions see the gradle.properties file
+    // Minecraft & Fabric
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}" // This is technically optional, but you probably want it anyway.
 
-    // Fabric API. This is technically optional, but you probably want it anyway.
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-
+    // owo-lib
     modImplementation "io.wispforest:owo-lib:${project.owo_version}"
     include "io.wispforest:owo-sentinel:${project.owo_version}"
     annotationProcessor modImplementation("io.wispforest:owo-lib:${project.owo_version}")
 
     // Optional dependency for Baritone
-    modImplementation "baritone-standalone-fabric:baritone-standalone-fabric:1.11.2"
-    modImplementation "baritone-api-fabric:baritone-api-fabric:1.11.2"
+    modImplementation "baritone-standalone-fabric:baritone-standalone-fabric:1.14.0-1-g4e05355f"
     modImplementation "nether-pathfinder:nether-pathfinder:1.6"
 
     // Optional dependency for Xaero's Minimap
     modImplementation "maven.modrinth:xaeros-minimap:${project.xaeros_minimap_version}"
 
     // Javalin
-    modImplementation "io.javalin:javalin:6.7.0"
-    include "io.javalin:javalin:6.7.0"
+    modShade "io.javalin:javalin:6.7.0"
 
-    // Javalin is written in Kotlin, so we need to include the Kotlin standard library.
-    modImplementation "org.jetbrains.kotlin:kotlin-stdlib:2.2.0"
-    include "org.jetbrains.kotlin:kotlin-stdlib:2.2.0"
-
-    // Javalin also requires the Jakarta Servlet API
-    modImplementation "jakarta.servlet:jakarta.servlet-api:6.1.0"
-    include "jakarta.servlet:jakarta.servlet-api:6.1.0"
-
-    // For Javalin's `ctx.json()`
-    modImplementation "com.fasterxml.jackson.core:jackson-databind:2.17.2"
-    include "com.fasterxml.jackson.core:jackson-databind:2.17.2"
+    // For Javalin's `ctx.json()` method
+    modShade "com.fasterxml.jackson.core:jackson-databind:2.17.2"
 }
 
 processResources {
@@ -101,13 +92,21 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
+// Modify the 'jar' task to include the 'shade' configuration
 jar {
     from("LICENSE") {
         rename { "${it}_${project.base.archivesName.get()}" }
     }
+
+    // This tells the JAR task to find all the libraries in the 'modShade'
+    // configuration and embed them.
+    from {
+        configurations.modShade.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
-// configure the maven publication
 publishing {
     publications {
         create("mavenJava", MavenPublication) {
