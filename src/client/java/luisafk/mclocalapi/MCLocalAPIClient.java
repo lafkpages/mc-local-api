@@ -183,21 +183,21 @@ public class MCLocalAPIClient implements ClientModInitializer {
         });
 
         // Protect new RESTful endpoints
-        protectEndpoint("/player/position", () -> config.enableEndpointPlayerPosition());
-        protectEndpoint("/player/world", () -> config.enableEndpointPlayerWorld());
-        protectEndpoint("/player/position/stream", () -> config.enableEndpointPlayerPositionStream());
-        protectEndpoint("/screen", () -> config.enableEndpointScreen());
-        protectEndpoint("/chat/messages", () -> config.enableEndpointChatMessages());
         protectEndpoint("/chat/commands", () -> config.enableEndpointChatCommands());
+        protectEndpoint("/chat/messages", () -> config.enableEndpointChatMessages());
+        protectEndpoint("/player/position", () -> config.enableEndpointPlayerPosition());
+        protectEndpoint("/player/position/stream", () -> config.enableEndpointPlayerPositionStream());
+        protectEndpoint("/player/world", () -> config.enableEndpointPlayerWorld());
+        protectEndpoint("/screen", () -> config.enableEndpointScreen());
         protectEndpoint("/xaero/waypoint-sets", () -> config.enableEndpointXaeroWaypointSets());
 
         // RESTful routes
-        server.get("/player/position", this::handleGetPlayerPosition);
-        server.get("/player/world", this::handleGetPlayerWorld);
-        server.sse("/player/position/stream", this::handlePlayerPositionStream);
-        server.get("/screen", this::handleGetScreen);
-        server.post("/chat/messages", this::handlePostChatMessages);
         server.post("/chat/commands", this::handlePostChatCommands);
+        server.post("/chat/messages", this::handlePostChatMessages);
+        server.get("/player/position", this::handleGetPlayerPosition);
+        server.sse("/player/position/stream", this::handlePlayerPositionStream);
+        server.get("/player/world", this::handleGetPlayerWorld);
+        server.get("/screen", this::handleGetScreen);
         server.get("/xaero/waypoint-sets", this::handleGetXaeroWaypointSets);
         server.post("/xaero/waypoint-sets", this::handlePostXaeroWaypointSets);
     }
@@ -216,28 +216,16 @@ public class MCLocalAPIClient implements ClientModInitializer {
         }
     }
 
-    private void handleGetPlayerPosition(Context ctx) {
+    private void handlePostChatCommands(Context ctx) {
         requirePlayer();
 
-        ctx.result(mc.player.getPos().toString());
-    }
+        String command = ctx.body();
 
-    private void handleGetPlayerWorld(Context ctx) {
-        requirePlayer();
+        if (command.isEmpty()) {
+            throw new BadRequestResponse("Command cannot be empty");
+        }
 
-        Identifier world = mc.world.getRegistryKey().getValue();
-        ctx.result(world.toString());
-    }
-
-    private void handlePlayerPositionStream(SseClient sse) {
-        requirePlayer();
-
-        sse.keepAlive();
-
-        sse.sendEvent(mc.player.getPos().toString());
-
-        posSseClients.add(sse);
-        sse.onClose(() -> posSseClients.remove(sse));
+        mc.player.networkHandler.sendChatCommand(command);
     }
 
     private void handlePostChatMessages(Context ctx) {
@@ -252,16 +240,28 @@ public class MCLocalAPIClient implements ClientModInitializer {
         mc.player.networkHandler.sendChatMessage(message);
     }
 
-    private void handlePostChatCommands(Context ctx) {
+    private void handleGetPlayerPosition(Context ctx) {
         requirePlayer();
 
-        String command = ctx.body();
+        ctx.result(mc.player.getPos().toString());
+    }
 
-        if (command.isEmpty()) {
-            throw new BadRequestResponse("Command cannot be empty");
-        }
+    private void handlePlayerPositionStream(SseClient sse) {
+        requirePlayer();
 
-        mc.player.networkHandler.sendChatCommand(command);
+        sse.keepAlive();
+
+        sse.sendEvent(mc.player.getPos().toString());
+
+        posSseClients.add(sse);
+        sse.onClose(() -> posSseClients.remove(sse));
+    }
+
+    private void handleGetPlayerWorld(Context ctx) {
+        requirePlayer();
+
+        Identifier world = mc.world.getRegistryKey().getValue();
+        ctx.result(world.toString());
     }
 
     private void handleGetScreen(Context ctx) {

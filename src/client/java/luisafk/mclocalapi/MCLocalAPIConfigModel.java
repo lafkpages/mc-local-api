@@ -24,12 +24,12 @@ public class MCLocalAPIConfigModel {
     public double playerPositionStreamDistanceThreshold = 1;
 
     @SectionHeader("endpoints")
-    public boolean enableEndpointPlayerPosition = false;
-    public boolean enableEndpointPlayerWorld = false;
-    public boolean enableEndpointPlayerPositionStream = false;
-    public boolean enableEndpointScreen = false;
-    public boolean enableEndpointChatMessages = false;
     public boolean enableEndpointChatCommands = false;
+    public boolean enableEndpointChatMessages = false;
+    public boolean enableEndpointPlayerPosition = false;
+    public boolean enableEndpointPlayerPositionStream = false;
+    public boolean enableEndpointPlayerWorld = false;
+    public boolean enableEndpointScreen = false;
     public boolean enableEndpointXaeroWaypointSets = false;
 
     public static boolean nonNegative(double value) {
