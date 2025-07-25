@@ -11,6 +11,7 @@
   "text.config.mc-local-api.section.endpoints": "API Endpoints",
   "text.config.mc-local-api.option.enableEndpointChatCommands": "Enable endpoint: /chat/commands",
   "text.config.mc-local-api.option.enableEndpointChatMessages": "Enable endpoint: /chat/messages",
+  "text.config.mc-local-api.option.enableEndpointMods": "Enable endpoint: /mods",
   "text.config.mc-local-api.option.enableEndpointPlayerPosition": "Enable endpoint: /player/position",
   "text.config.mc-local-api.option.enableEndpointPlayerPositionStream": "Enable endpoint: /player/position/stream",
   "text.config.mc-local-api.option.enableEndpointPlayerWorld": "Enable endpoint: /player/world",

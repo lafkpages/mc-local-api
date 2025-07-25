@@ -26,6 +26,7 @@ public class MCLocalAPIConfigModel {
     @SectionHeader("endpoints")
     public boolean enableEndpointChatCommands = false;
     public boolean enableEndpointChatMessages = false;
+    public boolean enableEndpointMods = false;
     public boolean enableEndpointPlayerPosition = false;
     public boolean enableEndpointPlayerPositionStream = false;
     public boolean enableEndpointPlayerWorld = false;

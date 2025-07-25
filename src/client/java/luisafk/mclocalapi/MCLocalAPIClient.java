@@ -185,6 +185,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         // Protect new RESTful endpoints
         protectEndpoint("/chat/commands", () -> config.enableEndpointChatCommands());
         protectEndpoint("/chat/messages", () -> config.enableEndpointChatMessages());
+        protectEndpoint("/mods", () -> config.enableEndpointMods());
         protectEndpoint("/player/position", () -> config.enableEndpointPlayerPosition());
         protectEndpoint("/player/position/stream", () -> config.enableEndpointPlayerPositionStream());
         protectEndpoint("/player/world", () -> config.enableEndpointPlayerWorld());
@@ -194,6 +195,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         // RESTful routes
         server.post("/chat/commands", this::handlePostChatCommands);
         server.post("/chat/messages", this::handlePostChatMessages);
+        server.get("/mods", this::handleGetMods);
         server.get("/player/position", this::handleGetPlayerPosition);
         server.sse("/player/position/stream", this::handlePlayerPositionStream);
         server.get("/player/world", this::handleGetPlayerWorld);
@@ -238,6 +240,30 @@ public class MCLocalAPIClient implements ClientModInitializer {
         }
 
         mc.player.networkHandler.sendChatMessage(message);
+    }
+
+    private void handleGetMods(Context ctx) {
+        // DTO
+        record ModInfo(String id, String version) {
+        }
+
+        // Create a list to hold our simplified mod information
+        List<ModInfo> mods = new ArrayList<>();
+
+        // Iterate over all loaded mods
+        fabricLoader.getAllMods().forEach(modContainer -> {
+            var metadata = modContainer.getMetadata();
+
+            // Create a new ModInfo object with just the id and version
+            // and add it to our list.
+            mods.add(new ModInfo(
+                    metadata.getId(),
+                    metadata.getVersion().getFriendlyString()));
+        });
+
+        // Serialize our simple list of ModInfo objects to JSON.
+        // This will produce the desired { id, version }[] format.
+        ctx.json(mods);
     }
 
     private void handleGetPlayerPosition(Context ctx) {
