@@ -1,8 +1,10 @@
 package luisafk.mclocalapi;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 
+import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +13,7 @@ import com.mojang.brigadier.Command;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
+import io.javalin.http.ServiceUnavailableResponse;
 import io.javalin.http.sse.SseClient;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -24,6 +27,10 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
+import xaero.hud.minimap.BuiltInHudModules;
+import xaero.hud.minimap.module.MinimapSession;
+import xaero.hud.minimap.waypoint.set.WaypointSet;
+import xaero.hud.minimap.world.MinimapWorld;
 
 public class MCLocalAPIClient implements ClientModInitializer {
     public static final luisafk.mclocalapi.MCLocalAPIConfig config = luisafk.mclocalapi.MCLocalAPIConfig
@@ -33,6 +40,8 @@ public class MCLocalAPIClient implements ClientModInitializer {
     public static final Version modVersion = FabricLoader.getInstance().getModContainer("mc-local-api").get()
             .getMetadata()
             .getVersion();
+
+    public static final MinecraftClient mc = MinecraftClient.getInstance();
 
     private Javalin server;
 
@@ -64,8 +73,8 @@ public class MCLocalAPIClient implements ClientModInitializer {
             }));
         });
 
-        ClientTickEvents.START_CLIENT_TICK.register((minecraftClient) -> {
-            if (minecraftClient.player == null) {
+        ClientTickEvents.START_CLIENT_TICK.register((mc) -> {
+            if (mc.player == null) {
                 if (config.posSseClose()) {
                     posSseClients.forEach(SseClient::close);
                     posSseClients.clear();
@@ -73,7 +82,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 return;
             }
 
-            Vec3d pos = minecraftClient.player.getPos();
+            Vec3d pos = mc.player.getPos();
 
             if (lastPos.distanceTo(pos) > config.posSseDistanceThreshold()) {
                 lastPos = pos;
@@ -88,7 +97,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 });
             }
 
-            Identifier world = minecraftClient.world.getRegistryKey().getValue();
+            Identifier world = mc.world.getRegistryKey().getValue();
 
             if (lastWorld != world) {
                 lastWorld = world;
@@ -156,7 +165,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
         server.get("/", ctx -> {
             ctx.result("MC Local API v" + modVersion + " running on Minecraft "
-                    + MinecraftClient.getInstance().getGameVersion() + " "
+                    + mc.getGameVersion() + " "
                     + SharedConstants.getGameVersion().getName());
         });
 
@@ -166,6 +175,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         server.get("/screen", this::handleScreen);
         server.post("/chat", this::handleChat);
         server.post("/chat/command", this::handleChatCommand);
+        server.get("/xaero/waypoints", this::handleXaeroWaypoints);
     }
 
     private void protectEndpoint(String path, Supplier<Boolean> enabledCheck) {
@@ -177,9 +187,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
     }
 
     private void requirePlayer() {
-        MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client.player == null) {
+        if (mc.player == null) {
             throw new PlayerUnavailableResponse();
         }
     }
@@ -187,15 +195,13 @@ public class MCLocalAPIClient implements ClientModInitializer {
     private void handlePos(Context ctx) {
         requirePlayer();
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        ctx.result(client.player.getPos().toString());
+        ctx.result(mc.player.getPos().toString());
     }
 
     private void handlePosWorld(Context ctx) {
         requirePlayer();
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        Identifier world = client.world.getRegistryKey().getValue();
+        Identifier world = mc.world.getRegistryKey().getValue();
         ctx.result(world.toString());
     }
 
@@ -204,8 +210,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
         sse.keepAlive();
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        sse.sendEvent(client.player.getPos().toString());
+        sse.sendEvent(mc.player.getPos().toString());
 
         posSseClients.add(sse);
         sse.onClose(() -> posSseClients.remove(sse));
@@ -214,40 +219,54 @@ public class MCLocalAPIClient implements ClientModInitializer {
     private void handleChat(Context ctx) {
         requirePlayer();
 
-        MinecraftClient client = MinecraftClient.getInstance();
         String message = ctx.body();
 
         if (message.isEmpty()) {
             throw new BadRequestResponse("Message cannot be empty");
         }
 
-        client.player.networkHandler.sendChatMessage(message);
+        mc.player.networkHandler.sendChatMessage(message);
     }
 
     private void handleChatCommand(Context ctx) {
         requirePlayer();
 
-        MinecraftClient client = MinecraftClient.getInstance();
         String command = ctx.body();
 
         if (command.isEmpty()) {
             throw new BadRequestResponse("Command cannot be empty");
         }
 
-        client.player.networkHandler.sendChatCommand(command);
+        mc.player.networkHandler.sendChatCommand(command);
     }
 
     private void handleScreen(Context ctx) {
         requirePlayer();
 
-        MinecraftClient client = MinecraftClient.getInstance();
-
-        if (client.currentScreen == null) {
+        if (mc.currentScreen == null) {
             ctx.status(204);
             return;
         }
 
-        ctx.result(client.currentScreen.getTitle().getString());
+        ctx.result(mc.currentScreen.getTitle().getString());
     }
 
+    private void handleXaeroWaypoints(Context ctx) {
+        MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
+
+        if (session == null) {
+            throw new ServiceUnavailableResponse("No Xaero's Minimap session available");
+        }
+
+        MinimapWorld world = session.getWorldManager().getCurrentWorld();
+
+        // Array of WaypointSet arrays to hold all waypoints
+        List<WaypointSet> allWaypoints = new ArrayList<WaypointSet>();
+
+        for (WaypointSet set : world.getIterableWaypointSets()) {
+            allWaypoints.add(set);
+        }
+
+        ctx.json(allWaypoints);
+    }
 }

@@ -28,6 +28,7 @@
     "fabric-api": "*"
   },
   "suggests": {
-    "baritone": "1.11.2"
+    "baritone": "1.11.2",
+    "xaeros-minimap": "25.2.0"
   }
 }

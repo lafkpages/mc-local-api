@@ -18,6 +18,13 @@ repositories {
     // for more information about repositories.
 
     maven { url 'https://maven.wispforest.io/releases/' }
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content {
+            includeGroup "maven.modrinth"
+        }
+    }
     
     flatDir {
         dirs 'libs'
@@ -52,7 +59,11 @@ dependencies {
     modImplementation "baritone-api-fabric:baritone-api-fabric:1.11.2"
     modImplementation "nether-pathfinder:nether-pathfinder:1.6"
 
+    // Optional dependency for Xaero's Minimap
+    modImplementation "maven.modrinth:xaeros-minimap:${project.xaeros_minimap_version}"
+
     implementation "io.javalin:javalin:6.7.0"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.17.2"
 }
 
 processResources {
