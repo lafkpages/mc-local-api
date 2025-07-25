@@ -4,18 +4,21 @@
   "text.config.mc-local-api.option.autoStart": "Auto start the API server",
   "text.config.mc-local-api.option.enableCors": "Enable CORS",
 
-  "text.config.mc-local-api.section.pos": "Endpoint: /pos",
-  "text.config.mc-local-api.option.enableEndpointPos": "Enable /pos endpoint",
+  "text.config.mc-local-api.section.pos": "Endpoints: /pos",
+  "text.config.mc-local-api.option.enableEndpointPos": "Enable endpoint: /pos",
+  "text.config.mc-local-api.option.enableEndpointPosWorld": "Enable endpoint: /pos/world",
+  "text.config.mc-local-api.option.enableEndpointPosSse": "Enable endpoint: /pos/sse",
   "text.config.mc-local-api.option.posSseClose": "Close /pos/sse when player disconnects",
   "text.config.mc-local-api.option.posSseDistanceThreshold": "Distance threshold (m) for sending updates to /pos/sse",
 
-  "text.config.mc-local-api.section.chat": "Endpoint: /chat",
-  "text.config.mc-local-api.option.enableEndpointChat": "Enable /chat endpoint",
-  "text.config.mc-local-api.option.enableEndpointChatCommand": "Enable /chat/command endpoint",
+  "text.config.mc-local-api.section.chat": "Endpoints: /chat",
+  "text.config.mc-local-api.option.enableEndpointChat": "Enable endpoint: /chat",
+  "text.config.mc-local-api.option.enableEndpointChatCommand": "Enable endpoint: /chat/command",
 
-  "text.config.mc-local-api.section.screen": "Endpoint: /screen",
-  "text.config.mc-local-api.option.enableEndpointScreen": "Enable /screen endpoint",
+  "text.config.mc-local-api.section.screen": "Endpoints: /screen",
+  "text.config.mc-local-api.option.enableEndpointScreen": "Enable endpoint: /screen",
 
-  "text.config.mc-local-api.section.xaero": "Endpoint: /xaero",
-  "text.config.mc-local-api.option.enableEndpointXaero": "Enable /xaero endpoint"
+  "text.config.mc-local-api.section.xaero": "Endpoints: /xaero",
+  "text.config.mc-local-api.option.enableEndpointXaeroWaypointsSets": "Enable endpoint: /xaero/waypoints/sets",
+  "text.config.mc-local-api.option.enableEndpointXaeroWaypointsSetsCreate": "Enable endpoint: /xaero/waypoints/sets/create"
 }

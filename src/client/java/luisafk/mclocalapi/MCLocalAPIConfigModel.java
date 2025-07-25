@@ -20,19 +20,22 @@ public class MCLocalAPIConfigModel {
 
     @SectionHeader("pos")
     public boolean enableEndpointPos = false;
+    public boolean enableEndpointPosWorld = false;
+    public boolean enableEndpointPosSse = false;
     public boolean posSseClose = true;
     @PredicateConstraint("nonNegative")
     public double posSseDistanceThreshold = 1;
+
+    @SectionHeader("screen")
+    public boolean enableEndpointScreen = false;
 
     @SectionHeader("chat")
     public boolean enableEndpointChat = false;
     public boolean enableEndpointChatCommand = false;
 
-    @SectionHeader("screen")
-    public boolean enableEndpointScreen = false;
-
     @SectionHeader("xaero")
-    public boolean enableEndpointXaero = false;
+    public boolean enableEndpointXaeroWaypointsSets = false;
+    public boolean enableEndpointXaeroWaypointsSetsCreate = false;
 
     public static boolean nonNegative(double value) {
         return value >= 0;

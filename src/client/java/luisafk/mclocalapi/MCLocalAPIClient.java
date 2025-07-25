@@ -175,17 +175,20 @@ public class MCLocalAPIClient implements ClientModInitializer {
     }
 
     private void defineRoutes() {
-        protectEndpoint("/pos/*", () -> config.enableEndpointPos());
-        protectEndpoint("/screen/*", () -> config.enableEndpointScreen());
-        protectEndpoint("/chat", () -> config.enableEndpointChat());
-        protectEndpoint("/chat/command", () -> config.enableEndpointChatCommand());
-        protectEndpoint("/xaero/*", () -> config.enableEndpointXaero());
-
         server.get("/", ctx -> {
             ctx.result("MC Local API v" + modVersion + " running on Minecraft "
                     + mc.getGameVersion() + " "
                     + SharedConstants.getGameVersion().name());
         });
+
+        protectEndpoint("/pos", () -> config.enableEndpointPos());
+        protectEndpoint("/pos/world", () -> config.enableEndpointPosWorld());
+        protectEndpoint("/pos/sse", () -> config.enableEndpointPosSse());
+        protectEndpoint("/screen", () -> config.enableEndpointScreen());
+        protectEndpoint("/chat", () -> config.enableEndpointChat());
+        protectEndpoint("/chat/command", () -> config.enableEndpointChatCommand());
+        protectEndpoint("/xaero/waypoints/sets", () -> config.enableEndpointXaeroWaypointsSets());
+        protectEndpoint("/xaero/waypoints/sets/create", () -> config.enableEndpointXaeroWaypointsSetsCreate());
 
         server.get("/pos", this::handlePos);
         server.get("/pos/world", this::handlePosWorld);
