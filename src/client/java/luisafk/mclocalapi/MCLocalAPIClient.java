@@ -2,6 +2,7 @@ package luisafk.mclocalapi;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 import org.slf4j.Logger;
@@ -47,7 +48,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
     Vec3d lastPos = new Vec3d(0, 0, 0);
     Identifier lastWorld;
-    ArrayList<SseClient> posSseClients = new ArrayList<>();
+    List<SseClient> posSseClients = new CopyOnWriteArrayList<>();
 
     @Override
     public void onInitializeClient() {
