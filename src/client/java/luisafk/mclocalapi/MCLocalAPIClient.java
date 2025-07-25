@@ -74,7 +74,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
         ClientTickEvents.START_CLIENT_TICK.register((mc) -> {
             if (mc.player == null) {
-                if (config.posSseClose()) {
+                if (config.closePlayerPositionStreams()) {
                     posSseClients.forEach(SseClient::close);
                     posSseClients.clear();
                 }
@@ -83,7 +83,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
             Vec3d pos = mc.player.getPos();
 
-            if (lastPos.distanceTo(pos) > config.posSseDistanceThreshold()) {
+            if (lastPos.distanceTo(pos) > config.playerPositionStreamDistanceThreshold()) {
                 lastPos = pos;
 
                 posSseClients.forEach(sse -> {
@@ -181,23 +181,24 @@ public class MCLocalAPIClient implements ClientModInitializer {
                     + SharedConstants.getGameVersion().name());
         });
 
-        protectEndpoint("/pos", () -> config.enableEndpointPos());
-        protectEndpoint("/pos/world", () -> config.enableEndpointPosWorld());
-        protectEndpoint("/pos/sse", () -> config.enableEndpointPosSse());
+        // Protect new RESTful endpoints
+        protectEndpoint("/player/position", () -> config.enableEndpointPlayerPosition());
+        protectEndpoint("/player/world", () -> config.enableEndpointPlayerWorld());
+        protectEndpoint("/player/position/stream", () -> config.enableEndpointPlayerPositionStream());
         protectEndpoint("/screen", () -> config.enableEndpointScreen());
-        protectEndpoint("/chat", () -> config.enableEndpointChat());
-        protectEndpoint("/chat/command", () -> config.enableEndpointChatCommand());
-        protectEndpoint("/xaero/waypoints/sets", () -> config.enableEndpointXaeroWaypointsSets());
-        protectEndpoint("/xaero/waypoints/sets/create", () -> config.enableEndpointXaeroWaypointsSetsCreate());
+        protectEndpoint("/chat/messages", () -> config.enableEndpointChatMessages());
+        protectEndpoint("/chat/commands", () -> config.enableEndpointChatCommands());
+        protectEndpoint("/xaero/waypoint-sets", () -> config.enableEndpointXaeroWaypointSets());
 
-        server.get("/pos", this::handlePos);
-        server.get("/pos/world", this::handlePosWorld);
-        server.sse("/pos/sse", this::handlePosSse);
-        server.get("/screen", this::handleScreen);
-        server.post("/chat", this::handleChat);
-        server.post("/chat/command", this::handleChatCommand);
-        server.get("/xaero/waypoints/sets", this::handleXaeroWaypointsSets);
-        server.post("/xaero/waypoints/sets/create", this::handleXaeroWaypointsSetsCreate);
+        // RESTful routes
+        server.get("/player/position", this::handleGetPlayerPosition);
+        server.get("/player/world", this::handleGetPlayerWorld);
+        server.sse("/player/position/stream", this::handlePlayerPositionStream);
+        server.get("/screen", this::handleGetScreen);
+        server.post("/chat/messages", this::handlePostChatMessages);
+        server.post("/chat/commands", this::handlePostChatCommands);
+        server.get("/xaero/waypoint-sets", this::handleGetXaeroWaypointSets);
+        server.post("/xaero/waypoint-sets", this::handlePostXaeroWaypointSets);
     }
 
     private void protectEndpoint(String path, Supplier<Boolean> enabledCheck) {
@@ -214,20 +215,20 @@ public class MCLocalAPIClient implements ClientModInitializer {
         }
     }
 
-    private void handlePos(Context ctx) {
+    private void handleGetPlayerPosition(Context ctx) {
         requirePlayer();
 
         ctx.result(mc.player.getPos().toString());
     }
 
-    private void handlePosWorld(Context ctx) {
+    private void handleGetPlayerWorld(Context ctx) {
         requirePlayer();
 
         Identifier world = mc.world.getRegistryKey().getValue();
         ctx.result(world.toString());
     }
 
-    private void handlePosSse(SseClient sse) {
+    private void handlePlayerPositionStream(SseClient sse) {
         requirePlayer();
 
         sse.keepAlive();
@@ -238,7 +239,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         sse.onClose(() -> posSseClients.remove(sse));
     }
 
-    private void handleChat(Context ctx) {
+    private void handlePostChatMessages(Context ctx) {
         requirePlayer();
 
         String message = ctx.body();
@@ -250,7 +251,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         mc.player.networkHandler.sendChatMessage(message);
     }
 
-    private void handleChatCommand(Context ctx) {
+    private void handlePostChatCommands(Context ctx) {
         requirePlayer();
 
         String command = ctx.body();
@@ -262,7 +263,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         mc.player.networkHandler.sendChatCommand(command);
     }
 
-    private void handleScreen(Context ctx) {
+    private void handleGetScreen(Context ctx) {
         requirePlayer();
 
         if (mc.currentScreen == null) {
@@ -273,7 +274,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         ctx.result(mc.currentScreen.getTitle().getString());
     }
 
-    private void handleXaeroWaypointsSets(Context ctx) {
+    private void handleGetXaeroWaypointSets(Context ctx) {
         MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
 
         if (session == null) {
@@ -292,7 +293,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         ctx.json(allWaypoints);
     }
 
-    private void handleXaeroWaypointsSetsCreate(Context ctx) {
+    private void handlePostXaeroWaypointSets(Context ctx) {
         MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
 
         if (session == null) {

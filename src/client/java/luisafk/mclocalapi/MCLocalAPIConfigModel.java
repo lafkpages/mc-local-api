@@ -18,24 +18,19 @@ public class MCLocalAPIConfigModel {
     public boolean autoStart = true;
     public boolean enableCors = true;
 
-    @SectionHeader("pos")
-    public boolean enableEndpointPos = false;
-    public boolean enableEndpointPosWorld = false;
-    public boolean enableEndpointPosSse = false;
-    public boolean posSseClose = true;
+    @SectionHeader("player-position")
+    public boolean closePlayerPositionStreams = true;
     @PredicateConstraint("nonNegative")
-    public double posSseDistanceThreshold = 1;
+    public double playerPositionStreamDistanceThreshold = 1;
 
-    @SectionHeader("screen")
+    @SectionHeader("endpoints")
+    public boolean enableEndpointPlayerPosition = false;
+    public boolean enableEndpointPlayerWorld = false;
+    public boolean enableEndpointPlayerPositionStream = false;
     public boolean enableEndpointScreen = false;
-
-    @SectionHeader("chat")
-    public boolean enableEndpointChat = false;
-    public boolean enableEndpointChatCommand = false;
-
-    @SectionHeader("xaero")
-    public boolean enableEndpointXaeroWaypointsSets = false;
-    public boolean enableEndpointXaeroWaypointsSetsCreate = false;
+    public boolean enableEndpointChatMessages = false;
+    public boolean enableEndpointChatCommands = false;
+    public boolean enableEndpointXaeroWaypointSets = false;
 
     public static boolean nonNegative(double value) {
         return value >= 0;
