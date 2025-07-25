@@ -62,8 +62,21 @@ dependencies {
     // Optional dependency for Xaero's Minimap
     modImplementation "maven.modrinth:xaeros-minimap:${project.xaeros_minimap_version}"
 
-    implementation "io.javalin:javalin:6.7.0"
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.17.2"
+    // Javalin
+    modImplementation "io.javalin:javalin:6.7.0"
+    include "io.javalin:javalin:6.7.0"
+
+    // Javalin is written in Kotlin, so we need to include the Kotlin standard library.
+    modImplementation "org.jetbrains.kotlin:kotlin-stdlib:2.2.0"
+    include "org.jetbrains.kotlin:kotlin-stdlib:2.2.0"
+
+    // Javalin also requires the Jakarta Servlet API
+    modImplementation "jakarta.servlet:jakarta.servlet-api:6.1.0"
+    include "jakarta.servlet:jakarta.servlet-api:6.1.0"
+
+    // For Javalin's `ctx.json()`
+    modImplementation "com.fasterxml.jackson.core:jackson-databind:2.17.2"
+    include "com.fasterxml.jackson.core:jackson-databind:2.17.2"
 }
 
 processResources {
