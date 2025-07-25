@@ -193,7 +193,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         server.get("/screen", this::handleScreen);
         server.post("/chat", this::handleChat);
         server.post("/chat/command", this::handleChatCommand);
-        server.get("/xaero/waypoints", this::handleXaeroWaypoints);
+        server.get("/xaero/waypoints/sets", this::handleXaeroWaypointsSets);
     }
 
     private void protectEndpoint(String path, Supplier<Boolean> enabledCheck) {
@@ -269,7 +269,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         ctx.result(mc.currentScreen.getTitle().getString());
     }
 
-    private void handleXaeroWaypoints(Context ctx) {
+    private void handleXaeroWaypointsSets(Context ctx) {
         MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
 
         if (session == null) {
