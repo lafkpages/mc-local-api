@@ -14,6 +14,7 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.ServiceUnavailableResponse;
 import io.javalin.http.sse.SseClient;
+import io.javalin.util.JavalinBindException;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -113,34 +114,52 @@ public class MCLocalAPIClient implements ClientModInitializer {
         });
     }
 
-    private void startServer() {
+    private boolean startServer() {
         if (server != null) {
             throw new IllegalStateException("MC Local API server is already running");
         }
 
-        // Create and configure the Javalin server
-        server = Javalin.create(serverConfig -> {
-            // Enable CORS if configured
-            if (config.enableCors()) {
-                serverConfig.bundledPlugins.enableCors(cors -> {
-                    cors.addRule(it -> {
-                        it.anyHost();
+        try {
+            // Create and configure the Javalin server
+            server = Javalin.create(serverConfig -> {
+                // Enable CORS if configured
+                if (config.enableCors()) {
+                    serverConfig.bundledPlugins.enableCors(cors -> {
+                        cors.addRule(it -> {
+                            it.anyHost();
+                        });
                     });
+                }
+
+                // Add a custom header to all responses
+                // serverConfig.http.addResponseHeader("Server", "MC Local API v" + modVersion);
+                serverConfig.bundledPlugins.enableGlobalHeaders(globalHeaders -> {
+                    globalHeaders.getHeaders().put("Server", "MC Local API v" + modVersion + ", Minecraft "
+                            + SharedConstants.getGameVersion().id());
                 });
+            }).start(config.port());
+        } catch (JavalinBindException e) {
+            logger.error("Failed to start MC Local API server on port {}: {}", config.port(), e.getMessage());
+
+            if (mc.player != null) {
+                mc.player.sendMessage(Text
+                        .literal("Failed to start MC Local API server on port " + config.port() + ": " + e.getMessage())
+                        .formatted(Formatting.RED), false);
             }
 
-            // Add a custom header to all responses
-            // serverConfig.http.addResponseHeader("Server", "MC Local API v" + modVersion);
-            serverConfig.bundledPlugins.enableGlobalHeaders(globalHeaders -> {
-                globalHeaders.getHeaders().put("Server", "MC Local API v" + modVersion + ", Minecraft "
-                        + SharedConstants.getGameVersion().id());
-            });
-        }).start(config.port());
+            return false;
+        }
 
         // Define your routes
         defineRoutes();
 
         logger.info("MC Local API server started on port {}", server.port());
+        if (mc.player != null) {
+            mc.player.sendMessage(Text.literal("MC Local API server started on port " + config.port())
+                    .formatted(Formatting.GREEN), false);
+        }
+
+        return true;
     }
 
     private void stopServer() {
