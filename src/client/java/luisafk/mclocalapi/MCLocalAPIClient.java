@@ -58,8 +58,6 @@ public class MCLocalAPIClient implements ClientModInitializer {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("startserver").executes(context -> {
                 startServer();
-                context.getSource()
-                        .sendFeedback(Text.literal("MC Local API server started").formatted(Formatting.GREEN));
                 return Command.SINGLE_SUCCESS;
             }));
         });
