@@ -1,7 +1,9 @@
 package luisafk.mclocalapi;
 
-import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
-
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,13 +14,13 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.io.CharStreams;
 import com.mojang.brigadier.Command;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.schema.GraphQLSchema;
-import graphql.schema.StaticDataFetcher;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
@@ -29,6 +31,7 @@ import io.javalin.http.Context;
 import io.javalin.http.ServiceUnavailableResponse;
 import io.javalin.http.sse.SseClient;
 import io.javalin.util.JavalinBindException;
+import luisafk.mclocalapi.graphql.GraphQLProvider;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -135,20 +138,27 @@ public class MCLocalAPIClient implements ClientModInitializer {
             throw new IllegalStateException("GraphQL is already initialized");
         }
 
-        // TODO: load schema from src/main/resources/schema.graphqls
-        String schema = "type Query{hello: String}";
+        // Get the schema file from the resources folder
+        InputStream schemaStream = MCLocalAPIClient.class.getClassLoader().getResourceAsStream("schema.graphqls");
+        if (schemaStream == null) {
+            throw new IllegalStateException("Cannot find schema.graphqls in resources!");
+        }
 
-        SchemaParser schemaParser = new SchemaParser();
-        TypeDefinitionRegistry typeDefinitionRegistry = schemaParser.parse(schema);
+        String schemaSdl;
 
-        RuntimeWiring runtimeWiring = newRuntimeWiring()
-                .type("Query", builder -> builder.dataFetcher("hello", new StaticDataFetcher("world")))
-                .build();
+        try {
+            // Read the stream into a string
+            schemaSdl = CharStreams.toString(new InputStreamReader(schemaStream, StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read schema.graphqls: " + e.getMessage(), e);
+        }
 
-        SchemaGenerator schemaGenerator = new SchemaGenerator();
-        GraphQLSchema graphQLSchema = schemaGenerator.makeExecutableSchema(typeDefinitionRegistry, runtimeWiring);
+        // Parse the schema and build the executable schema
+        TypeDefinitionRegistry typeRegistry = new SchemaParser().parse(schemaSdl);
+        RuntimeWiring runtimeWiring = GraphQLProvider.buildWiring();
+        GraphQLSchema schema = new SchemaGenerator().makeExecutableSchema(typeRegistry, runtimeWiring);
 
-        graphQl = GraphQL.newGraphQL(graphQLSchema).build();
+        graphQl = GraphQL.newGraphQL(schema).build();
     }
 
     private boolean startServer() {
