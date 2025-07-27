@@ -1,11 +1,31 @@
 schema {
   query: Query
+  mutation: Mutation
 }
 
 type Query {
   player: Player
+  mods: [Mod!]!
+  screen: String
+  xaeroWaypointSets: [XaeroWaypointSet!]!
+}
+
+type Mutation {
+  sendChatCommand(command: String!): Boolean
+  sendChatMessage(message: String!): Boolean
+  createXaeroWaypointSet(name: String!): XaeroWaypointSet
 }
 
 type Player {
   position: String
+  world: String
+}
+
+type Mod {
+  id: String!
+  version: String!
+}
+
+type XaeroWaypointSet {
+  name: String
 }
