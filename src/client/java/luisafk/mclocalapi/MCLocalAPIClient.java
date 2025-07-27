@@ -1,5 +1,7 @@
 package luisafk.mclocalapi;
 
+import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,6 +14,15 @@ import org.slf4j.LoggerFactory;
 
 import com.mojang.brigadier.Command;
 
+import graphql.ExecutionInput;
+import graphql.ExecutionResult;
+import graphql.GraphQL;
+import graphql.schema.GraphQLSchema;
+import graphql.schema.StaticDataFetcher;
+import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.SchemaGenerator;
+import graphql.schema.idl.SchemaParser;
+import graphql.schema.idl.TypeDefinitionRegistry;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -48,6 +59,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
             .getVersion();
 
     private Javalin server;
+    private GraphQL graphQl;
 
     Vec3d lastPos = new Vec3d(0, 0, 0);
     Identifier lastWorld;
@@ -114,6 +126,29 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 });
             }
         });
+
+        initGraphQl();
+    }
+
+    private void initGraphQl() {
+        if (graphQl != null) {
+            throw new IllegalStateException("GraphQL is already initialized");
+        }
+
+        // TODO: load schema from src/main/resources/schema.graphqls
+        String schema = "type Query{hello: String}";
+
+        SchemaParser schemaParser = new SchemaParser();
+        TypeDefinitionRegistry typeDefinitionRegistry = schemaParser.parse(schema);
+
+        RuntimeWiring runtimeWiring = newRuntimeWiring()
+                .type("Query", builder -> builder.dataFetcher("hello", new StaticDataFetcher("world")))
+                .build();
+
+        SchemaGenerator schemaGenerator = new SchemaGenerator();
+        GraphQLSchema graphQLSchema = schemaGenerator.makeExecutableSchema(typeDefinitionRegistry, runtimeWiring);
+
+        graphQl = GraphQL.newGraphQL(graphQLSchema).build();
     }
 
     private boolean startServer() {
@@ -184,7 +219,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
                     + SharedConstants.getGameVersion().name());
         });
 
-        // Protect new RESTful endpoints
+        // Protect the GraphQL endpoint
+        protectEndpoint("/graphql", () -> config.enableGraphQL());
+
+        // Protect RESTful endpoints
         protectEndpoint("/chat/commands", () -> config.enableEndpointChatCommands());
         protectEndpoint("/chat/messages", () -> config.enableEndpointChatMessages());
         protectEndpoint("/mods", () -> config.enableEndpointMods());
@@ -193,6 +231,9 @@ public class MCLocalAPIClient implements ClientModInitializer {
         protectEndpoint("/player/world", () -> config.enableEndpointPlayerWorld());
         protectEndpoint("/screen", () -> config.enableEndpointScreen());
         protectEndpoint("/xaero/waypoint-sets", () -> config.enableEndpointXaeroWaypointSets());
+
+        // Define the GraphQL endpoint
+        server.post("/graphql", this::handleGraphQL);
 
         // RESTful routes
         server.post("/chat/commands", this::handlePostChatCommands);
@@ -218,6 +259,21 @@ public class MCLocalAPIClient implements ClientModInitializer {
         if (mc.player == null) {
             throw new PlayerUnavailableResponse();
         }
+    }
+
+    private void handleGraphQL(Context ctx) {
+        // TODO: https://graphql.org/learn/serving-over-http/
+        // TODO: https://www.graphql-java.com/documentation/execution/#query-caching
+
+        ExecutionInput executionInput = ExecutionInput.newExecutionInput()
+                .query(ctx.body())
+                .build();
+
+        ExecutionResult executionResult = graphQl.execute(executionInput);
+
+        Map<String, Object> resultMap = executionResult.toSpecification();
+
+        ctx.json(resultMap);
     }
 
     private void handlePostChatCommands(Context ctx) {

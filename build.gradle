@@ -68,6 +68,9 @@ dependencies {
 
     // For Javalin's `ctx.json()` method
     modShade "com.fasterxml.jackson.core:jackson-databind:2.17.2"
+
+    // GraphQL Java
+    modShade "com.graphql-java:graphql-java:24.1"
 }
 
 processResources {
