@@ -20,7 +20,6 @@ import xaero.hud.minimap.waypoint.set.WaypointSet;
 import xaero.hud.minimap.world.MinimapWorld;
 
 public class GraphQLProvider {
-
     private static void checkEndpointEnabled(boolean enabled, String endpointName) {
         if (!enabled) {
             throw new GraphQLException("Endpoint " + endpointName + " is disabled in the user's configuration");
