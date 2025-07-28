@@ -18,6 +18,7 @@ public class MCLocalAPIConfigModel {
     public boolean autoStart = true;
     public boolean enableCors = true;
     public boolean enableGraphQL = false;
+    public boolean enableGraphiQL = false;
 
     @SectionHeader("player-position")
     public boolean closePlayerPositionStreams = true;

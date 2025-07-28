@@ -4,6 +4,7 @@
   "text.config.mc-local-api.option.autoStart": "Auto start the API server",
   "text.config.mc-local-api.option.enableCors": "Enable CORS",
   "text.config.mc-local-api.option.enableGraphQL": "Enable GraphQL API",
+  "text.config.mc-local-api.option.enableGraphiQL": "Enable GraphiQL playground",
 
   "text.config.mc-local-api.section.player-position": "Options for endpoints under /player/position",
   "text.config.mc-local-api.option.closePlayerPositionStreams": "Close /player/position/stream SSE streams when player disconnects",

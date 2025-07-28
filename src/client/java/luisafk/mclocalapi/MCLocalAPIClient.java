@@ -27,6 +27,7 @@ import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
+import io.javalin.http.ContentType;
 import io.javalin.http.Context;
 import io.javalin.http.ServiceUnavailableResponse;
 import io.javalin.http.sse.SseClient;
@@ -230,8 +231,9 @@ public class MCLocalAPIClient implements ClientModInitializer {
                     + SharedConstants.getGameVersion().name());
         });
 
-        // Protect the GraphQL endpoint
+        // Protect GraphQL endpoints
         protectEndpoint("/graphql", () -> config.enableGraphQL());
+        protectEndpoint("/graphiql", () -> config.enableGraphiQL());
 
         // Protect RESTful endpoints
         protectEndpoint("/chat/commands", () -> config.enableEndpointChatCommands());
@@ -243,8 +245,9 @@ public class MCLocalAPIClient implements ClientModInitializer {
         protectEndpoint("/screen", () -> config.enableEndpointScreen());
         protectEndpoint("/xaero/waypoint-sets", () -> config.enableEndpointXaeroWaypointSets());
 
-        // Define the GraphQL endpoint
+        // GraphQL endpoints
         server.post("/graphql", this::handleGraphQL);
+        server.get("/graphiql", this::handleGraphiQL);
 
         // RESTful routes
         server.post("/chat/commands", this::handlePostChatCommands);
@@ -342,6 +345,18 @@ public class MCLocalAPIClient implements ClientModInitializer {
         Map<String, Object> resultMap = executionResult.toSpecification();
 
         ctx.json(resultMap);
+    }
+
+    private void handleGraphiQL(Context ctx) {
+        InputStream graphiqlStream = MCLocalAPIClient.class.getClassLoader()
+                .getResourceAsStream("graphiql.html");
+
+        if (graphiqlStream == null) {
+            ctx.status(404).result("GraphiQL interface not found");
+            return;
+        }
+
+        ctx.contentType(ContentType.TEXT_HTML).result(graphiqlStream);
     }
 
     private void handlePostChatCommands(Context ctx) {
