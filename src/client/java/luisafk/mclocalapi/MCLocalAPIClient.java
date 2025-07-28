@@ -32,6 +32,7 @@ import io.javalin.http.ServiceUnavailableResponse;
 import io.javalin.http.sse.SseClient;
 import io.javalin.util.JavalinBindException;
 import luisafk.mclocalapi.graphql.GraphQLProvider;
+import luisafk.mclocalapi.graphql.GraphQLRequest;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -272,13 +273,33 @@ public class MCLocalAPIClient implements ClientModInitializer {
     }
 
     private void handleGraphQL(Context ctx) {
-        // TODO: https://graphql.org/learn/serving-over-http/
         // TODO: https://www.graphql-java.com/documentation/execution/#query-caching
 
-        ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-                .query(ctx.body())
-                .build();
+        // Parse the JSON body into a GraphQLRequest object
+        GraphQLRequest request = ctx.bodyAsClass(GraphQLRequest.class);
 
+        // Validate that we have at least a query
+        if (request.getQuery() == null || request.getQuery().isEmpty()) {
+            throw new BadRequestResponse("Query is required");
+        }
+
+        ExecutionInput.Builder executionInputBuilder = ExecutionInput.newExecutionInput()
+                .query(request.getQuery());
+
+        // Add optional fields if present
+        if (request.getOperationName() != null) {
+            executionInputBuilder.operationName(request.getOperationName());
+        }
+
+        if (request.getVariables() != null) {
+            executionInputBuilder.variables(request.getVariables());
+        }
+
+        if (request.getExtensions() != null) {
+            executionInputBuilder.extensions(request.getExtensions());
+        }
+
+        ExecutionInput executionInput = executionInputBuilder.build();
         ExecutionResult executionResult = graphQl.execute(executionInput);
 
         Map<String, Object> resultMap = executionResult.toSpecification();
