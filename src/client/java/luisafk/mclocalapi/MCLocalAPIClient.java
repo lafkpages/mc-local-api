@@ -275,6 +275,43 @@ public class MCLocalAPIClient implements ClientModInitializer {
     private void handleGraphQL(Context ctx) {
         // TODO: https://www.graphql-java.com/documentation/execution/#query-caching
 
+        // From the [GraphQL
+        // spec](https://graphql.org/learn/serving-over-http/#post-request-and-body):
+        //
+        // > Note that if the `Content-type` header is missing in the client’s request,
+        // > then the server should respond with a `4xx` status code. As with the
+        // > `Accept` header, `utf-8` encoding is assumed for a request body with an
+        // > `application/json` media type when this information is not explicitly
+        // > provided.
+
+        String contentType = ctx.contentType();
+
+        // Check if Content-Type header is missing
+        if (contentType == null || contentType.isEmpty()) {
+            ctx.status(400);
+            ctx.json(Map.of(
+                    "errors", List.of(Map.of(
+                            "message",
+                            "Missing Content-Type header. GraphQL requests must use Content-Type: application/json"))));
+            return;
+        }
+
+        // Parse the content type (handle charset and other parameters)
+        String mediaType = contentType.split(";")[0].trim().toLowerCase();
+
+        // Check if Content-Type is application/json
+        if (!mediaType.equals("application/json")) {
+            ctx.status(400);
+            ctx.json(Map.of(
+                    "errors", List.of(Map.of(
+                            "message", "Invalid Content-Type: " + contentType
+                                    + ". GraphQL requests must use Content-Type: application/json"))));
+            return;
+        }
+
+        // Content-Type is valid, continue to the handler
+        // Javalin automatically handles UTF-8 encoding for application/json
+
         // Parse the JSON body into a GraphQLRequest object
         GraphQLRequest request = ctx.bodyAsClass(GraphQLRequest.class);
 
