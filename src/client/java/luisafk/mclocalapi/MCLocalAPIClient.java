@@ -4,12 +4,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,11 +26,11 @@ import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ContentType;
 import io.javalin.http.Context;
-import io.javalin.http.ServiceUnavailableResponse;
 import io.javalin.http.sse.SseClient;
 import io.javalin.util.JavalinBindException;
 import luisafk.mclocalapi.graphql.GraphQLProvider;
 import luisafk.mclocalapi.graphql.GraphQLRequest;
+import luisafk.mclocalapi.rest.RestApiProvider;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -46,13 +43,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
-import xaero.hud.minimap.BuiltInHudModules;
-import xaero.hud.minimap.module.MinimapSession;
-import xaero.hud.minimap.waypoint.set.WaypointSet;
-import xaero.hud.minimap.world.MinimapWorld;
 
 public class MCLocalAPIClient implements ClientModInitializer {
-    public static final luisafk.mclocalapi.MCLocalAPIConfig config = luisafk.mclocalapi.MCLocalAPIConfig
+    public static final MCLocalAPIConfig config = MCLocalAPIConfig
             .createAndLoad();
 
     public static final MinecraftClient mc = MinecraftClient.getInstance();
@@ -68,7 +61,8 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
     Vec3d lastPos = new Vec3d(0, 0, 0);
     Identifier lastWorld;
-    List<SseClient> posSseClients = new CopyOnWriteArrayList<>();
+
+    public static final List<SseClient> posSseClients = new CopyOnWriteArrayList<>();
 
     @Override
     public void onInitializeClient() {
@@ -181,7 +175,6 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 }
 
                 // Add a custom header to all responses
-                // serverConfig.http.addResponseHeader("Server", "MC Local API v" + modVersion);
                 serverConfig.bundledPlugins.enableGlobalHeaders(globalHeaders -> {
                     globalHeaders.getHeaders().put("Server", "MC Local API v" + modVersion + ", Minecraft "
                             + SharedConstants.getGameVersion().id());
@@ -199,8 +192,12 @@ public class MCLocalAPIClient implements ClientModInitializer {
             return false;
         }
 
-        // Define your routes
-        defineRoutes();
+        // Define REST routes via RestApiProvider
+        new RestApiProvider(server).defineRoutes();
+
+        // GraphQL endpoints
+        server.post("/graphql", this::handleGraphQL);
+        server.get("/graphiql", this::handleGraphiQL);
 
         logger.info("MC Local API server started on port {}", server.port());
         if (mc.player != null) {
@@ -222,57 +219,6 @@ public class MCLocalAPIClient implements ClientModInitializer {
         posSseClients.clear();
 
         logger.info("MC Local API server stopped");
-    }
-
-    private void defineRoutes() {
-        server.get("/", ctx -> {
-            ctx.result("MC Local API v" + modVersion + " running on Minecraft "
-                    + mc.getGameVersion() + " "
-                    + SharedConstants.getGameVersion().name());
-        });
-
-        // Protect GraphQL endpoints
-        protectEndpoint("/graphql", () -> config.enableGraphQL());
-        protectEndpoint("/graphiql", () -> config.enableGraphiQL());
-
-        // Protect RESTful endpoints
-        protectEndpoint("/chat/commands", () -> config.enableEndpointChatCommands());
-        protectEndpoint("/chat/messages", () -> config.enableEndpointChatMessages());
-        protectEndpoint("/mods", () -> config.enableEndpointMods());
-        protectEndpoint("/player/position", () -> config.enableEndpointPlayerPosition());
-        protectEndpoint("/player/position/stream", () -> config.enableEndpointPlayerPositionStream());
-        protectEndpoint("/player/world", () -> config.enableEndpointPlayerWorld());
-        protectEndpoint("/screen", () -> config.enableEndpointScreen());
-        protectEndpoint("/xaero/waypoint-sets", () -> config.enableEndpointXaeroWaypointSets());
-
-        // GraphQL endpoints
-        server.post("/graphql", this::handleGraphQL);
-        server.get("/graphiql", this::handleGraphiQL);
-
-        // RESTful routes
-        server.post("/chat/commands", this::handlePostChatCommands);
-        server.post("/chat/messages", this::handlePostChatMessages);
-        server.get("/mods", this::handleGetMods);
-        server.get("/player/position", this::handleGetPlayerPosition);
-        server.sse("/player/position/stream", this::handlePlayerPositionStream);
-        server.get("/player/world", this::handleGetPlayerWorld);
-        server.get("/screen", this::handleGetScreen);
-        server.get("/xaero/waypoint-sets", this::handleGetXaeroWaypointSets);
-        server.post("/xaero/waypoint-sets", this::handlePostXaeroWaypointSets);
-    }
-
-    private void protectEndpoint(String path, Supplier<Boolean> enabledCheck) {
-        server.before(path, ctx -> {
-            if (!enabledCheck.get()) {
-                throw new EndpointDisabledResponse();
-            }
-        });
-    }
-
-    private void requirePlayer() {
-        if (mc.player == null) {
-            throw new PlayerUnavailableResponse();
-        }
     }
 
     private void handleGraphQL(Context ctx) {
@@ -357,120 +303,5 @@ public class MCLocalAPIClient implements ClientModInitializer {
         }
 
         ctx.contentType(ContentType.TEXT_HTML).result(graphiqlStream);
-    }
-
-    private void handlePostChatCommands(Context ctx) {
-        requirePlayer();
-
-        String command = ctx.body();
-
-        if (command.isEmpty()) {
-            throw new BadRequestResponse("Command cannot be empty");
-        }
-
-        mc.player.networkHandler.sendChatCommand(command);
-    }
-
-    private void handlePostChatMessages(Context ctx) {
-        requirePlayer();
-
-        String message = ctx.body();
-
-        if (message.isEmpty()) {
-            throw new BadRequestResponse("Message cannot be empty");
-        }
-
-        mc.player.networkHandler.sendChatMessage(message);
-    }
-
-    private void handleGetMods(Context ctx) {
-        // Create a map to hold mod information with mod ID as key and version as value
-        Map<String, String> mods = new HashMap<>();
-
-        // Iterate over all loaded mods
-        fabricLoader.getAllMods().forEach(modContainer -> {
-            var metadata = modContainer.getMetadata();
-
-            // Add mod ID as key and version as value to the map
-            mods.put(metadata.getId(), metadata.getVersion().getFriendlyString());
-        });
-
-        // Serialize the map to JSON.
-        // This will produce the desired { [modId]: version } format.
-        ctx.json(mods);
-    }
-
-    private void handleGetPlayerPosition(Context ctx) {
-        requirePlayer();
-
-        ctx.result(mc.player.getPos().toString());
-    }
-
-    private void handlePlayerPositionStream(SseClient sse) {
-        requirePlayer();
-
-        sse.keepAlive();
-
-        sse.sendEvent(mc.player.getPos().toString());
-
-        posSseClients.add(sse);
-        sse.onClose(() -> posSseClients.remove(sse));
-    }
-
-    private void handleGetPlayerWorld(Context ctx) {
-        requirePlayer();
-
-        Identifier world = mc.world.getRegistryKey().getValue();
-        ctx.result(world.toString());
-    }
-
-    private void handleGetScreen(Context ctx) {
-        requirePlayer();
-
-        if (mc.currentScreen == null) {
-            ctx.status(204);
-            return;
-        }
-
-        ctx.result(mc.currentScreen.getTitle().getString());
-    }
-
-    private void handleGetXaeroWaypointSets(Context ctx) {
-        MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
-
-        if (session == null) {
-            throw new ServiceUnavailableResponse("No Xaero's Minimap session available");
-        }
-
-        MinimapWorld world = session.getWorldManager().getCurrentWorld();
-
-        // Array of WaypointSet arrays to hold all waypoints
-        List<WaypointSet> allWaypoints = new ArrayList<WaypointSet>();
-
-        for (WaypointSet set : world.getIterableWaypointSets()) {
-            allWaypoints.add(set);
-        }
-
-        ctx.json(allWaypoints);
-    }
-
-    private void handlePostXaeroWaypointSets(Context ctx) {
-        MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
-
-        if (session == null) {
-            throw new ServiceUnavailableResponse("No Xaero's Minimap session available");
-        }
-
-        String setName = ctx.body();
-
-        if (setName.isEmpty()) {
-            throw new BadRequestResponse("Set name cannot be empty");
-        }
-
-        MinimapWorld world = session.getWorldManager().getCurrentWorld();
-
-        world.addWaypointSet(setName);
-
-        ctx.json(world.getWaypointSet(setName));
     }
 }

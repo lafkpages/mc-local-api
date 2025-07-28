@@ -1,4 +1,4 @@
-package luisafk.mclocalapi;
+package luisafk.mclocalapi.rest;
 
 import io.javalin.http.ServiceUnavailableResponse;
 
