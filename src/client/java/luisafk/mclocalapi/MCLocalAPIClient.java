@@ -1,19 +1,20 @@
 package luisafk.mclocalapi;
 
 import com.mojang.brigadier.Command;
-import io.javalin.Javalin;
-import io.javalin.http.sse.SseClient;
-import io.javalin.util.JavalinBindException;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.BindException;
+import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import luisafk.mclocalapi.rest.RestApiProvider;
+import luisafk.mclocalapi.rest.SseConnection;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.Version;
-import net.minecraft.SharedConstants;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -36,12 +37,12 @@ public class MCLocalAPIClient implements ClientModInitializer {
         .getMetadata()
         .getVersion();
 
-    private Javalin server;
+    private HttpServer server;
 
     Vec3d lastPos;
     String lastWorld;
 
-    public static final List<SseClient> posSseClients =
+    public static final List<SseConnection> posSseClients =
         new CopyOnWriteArrayList<>();
 
     @Override
@@ -86,7 +87,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
             if (mc.player == null) {
                 if (config.closePlayerPositionStreams) {
-                    posSseClients.forEach(SseClient::close);
+                    posSseClients.forEach(SseConnection::close);
                     posSseClients.clear();
                 }
                 return;
@@ -95,11 +96,11 @@ public class MCLocalAPIClient implements ClientModInitializer {
             Vec3d pos = mc.player.getPos();
             String world = mc.world.getRegistryKey().getValue().toString();
 
-            Boolean didPositionChange =
+            boolean didPositionChange =
                 lastPos == null ||
                 lastPos.distanceTo(pos) >
                     config.playerPositionStreamDistanceThreshold;
-            Boolean didWorldChange =
+            boolean didWorldChange =
                 lastWorld == null || !lastWorld.equals(world);
 
             if (didPositionChange) {
@@ -144,33 +145,30 @@ public class MCLocalAPIClient implements ClientModInitializer {
         }
 
         try {
-            // Create and configure the Javalin server
-            server = Javalin.create(serverConfig -> {
-                // Enable CORS if configured
-                if (config.enableCors) {
-                    serverConfig.bundledPlugins.enableCors(cors -> {
-                        cors.addRule(it -> {
-                            it.anyHost();
-                        });
-                    });
-                }
+            server = HttpServer.create(new InetSocketAddress(config.port), 0);
+            new RestApiProvider(server).defineRoutes();
+            server.start();
+        } catch (BindException e) {
+            logger.error(
+                "Failed to start MC Local API server on port {}: {}",
+                config.port,
+                e.getMessage()
+            );
 
-                // Add a custom header to all responses
-                serverConfig.bundledPlugins.enableGlobalHeaders(
-                    globalHeaders -> {
-                        globalHeaders
-                            .getHeaders()
-                            .put(
-                                "Server",
-                                "MC Local API v" +
-                                    modVersion +
-                                    ", Minecraft " +
-                                    SharedConstants.getGameVersion().id()
-                            );
-                    }
+            if (mc.player != null) {
+                mc.player.sendMessage(
+                    Text.literal(
+                        "Failed to start MC Local API server on port " +
+                            config.port +
+                            ": " +
+                            e.getMessage()
+                    ).formatted(Formatting.RED),
+                    false
                 );
-            }).start(config.port);
-        } catch (JavalinBindException e) {
+            }
+
+            return false;
+        } catch (IOException e) {
             logger.error(
                 "Failed to start MC Local API server on port {}: {}",
                 config.port,
@@ -192,10 +190,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
             return false;
         }
 
-        // Define REST routes via RestApiProvider
-        new RestApiProvider(server).defineRoutes();
-
-        logger.info("MC Local API server started on port {}", server.port());
+        logger.info(
+            "MC Local API server started on port {}",
+            server.getAddress().getPort()
+        );
         if (mc.player != null) {
             mc.player.sendMessage(
                 Text.literal(
@@ -215,10 +213,11 @@ public class MCLocalAPIClient implements ClientModInitializer {
             );
         }
 
-        server.stop();
-        server = null;
-
+        posSseClients.forEach(SseConnection::close);
         posSseClients.clear();
+
+        server.stop(0);
+        server = null;
 
         logger.info("MC Local API server stopped");
     }

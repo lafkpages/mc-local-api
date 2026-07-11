@@ -69,12 +69,6 @@ dependencies {
 
     // Optional dependency for Xaero's Minimap
     modImplementation "maven.modrinth:xaeros-minimap:${project.xaeros_minimap_version}"
-
-    // Javalin
-    modShade "io.javalin:javalin:6.7.0"
-
-    // For Javalin's `ctx.json()` method
-    modShade "com.fasterxml.jackson.core:jackson-databind:2.17.2"
 }
 
 processResources {

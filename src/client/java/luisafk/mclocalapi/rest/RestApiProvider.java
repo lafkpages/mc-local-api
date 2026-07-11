@@ -6,11 +6,13 @@ import static luisafk.mclocalapi.MCLocalAPIClient.mc;
 import static luisafk.mclocalapi.MCLocalAPIClient.modVersion;
 import static luisafk.mclocalapi.MCLocalAPIClient.posSseClients;
 
-import io.javalin.Javalin;
-import io.javalin.http.BadRequestResponse;
-import io.javalin.http.Context;
-import io.javalin.http.ServiceUnavailableResponse;
-import io.javalin.http.sse.SseClient;
+import com.google.gson.Gson;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,105 +27,162 @@ import xaero.hud.minimap.world.MinimapWorld;
 
 public class RestApiProvider {
 
-    private Javalin server;
+    private final HttpServer server;
+    private final Gson gson = new Gson();
 
-    public RestApiProvider(Javalin server) {
+    public RestApiProvider(HttpServer server) {
         this.server = server;
     }
 
     public void defineRoutes() {
-        server.get("/", this::handleRoot);
+        register("/", "GET", this::handleRoot);
 
-        // Protect RESTful endpoints
-        protectEndpoint(
+        registerProtected(
             "/chat/commands",
-            () -> config.enableEndpointChatCommands
+            "POST",
+            () -> config.enableEndpointChatCommands,
+            this::handlePostChatCommands
         );
-        protectEndpoint(
+        registerProtected(
             "/chat/messages",
-            () -> config.enableEndpointChatMessages
+            "POST",
+            () -> config.enableEndpointChatMessages,
+            this::handlePostChatMessages
         );
-        protectEndpoint("/mods", () -> config.enableEndpointMods);
-        protectEndpoint(
+        registerProtected(
+            "/mods",
+            "GET",
+            () -> config.enableEndpointMods,
+            this::handleGetMods
+        );
+        registerProtected(
             "/player/position",
-            () -> config.enableEndpointPlayerPosition
+            "GET",
+            () -> config.enableEndpointPlayerPosition,
+            this::handleGetPlayerPosition
         );
-        protectEndpoint(
+        registerProtected(
             "/player/position/stream",
-            () -> config.enableEndpointPlayerPositionStream
+            () -> config.enableEndpointPlayerPositionStream,
+            this::handlePlayerPositionStream
         );
-        protectEndpoint(
+        registerProtected(
             "/player/world",
-            () -> config.enableEndpointPlayerWorld
+            "GET",
+            () -> config.enableEndpointPlayerWorld,
+            this::handleGetPlayerWorld
         );
-        protectEndpoint("/screen", () -> config.enableEndpointScreen);
-        protectEndpoint(
+        registerProtected(
+            "/screen",
+            "GET",
+            () -> config.enableEndpointScreen,
+            this::handleGetScreen
+        );
+        registerProtected(
             "/xaero/waypoint-sets",
-            () -> config.enableEndpointXaeroWaypointSets
+            () -> config.enableEndpointXaeroWaypointSets,
+            exchange -> {
+                switch (exchange.getRequestMethod().toUpperCase()) {
+                    case "GET" -> handleGetXaeroWaypointSets(exchange);
+                    case "POST" -> handlePostXaeroWaypointSets(exchange);
+                    default -> throw new ApiException(
+                        405,
+                        "Method Not Allowed"
+                    );
+                }
+            }
         );
-
-        // RESTful routes
-        server.post("/chat/commands", this::handlePostChatCommands);
-        server.post("/chat/messages", this::handlePostChatMessages);
-        server.get("/mods", this::handleGetMods);
-        server.get("/player/position", this::handleGetPlayerPosition);
-        server.sse("/player/position/stream", this::handlePlayerPositionStream);
-        server.get("/player/world", this::handleGetPlayerWorld);
-        server.get("/screen", this::handleGetScreen);
-        server.get("/xaero/waypoint-sets", this::handleGetXaeroWaypointSets);
-        server.post("/xaero/waypoint-sets", this::handlePostXaeroWaypointSets);
     }
 
-    private void protectEndpoint(String path, Supplier<Boolean> enabledCheck) {
-        server.before(path, ctx -> {
-            if (!enabledCheck.get()) {
-                throw new EndpointDisabledResponse();
+    private void register(String path, String method, HttpHandler handler) {
+        server.createContext(
+            path,
+            new ExchangeWrapper(exchange -> {
+                if (!exchange.getRequestMethod().equalsIgnoreCase(method)) {
+                    throw new ApiException(405, "Method Not Allowed");
+                }
+                handler.handle(exchange);
+            })
+        );
+    }
+
+    private void registerProtected(
+        String path,
+        String method,
+        Supplier<Boolean> enabledCheck,
+        HttpHandler handler
+    ) {
+        registerProtected(path, enabledCheck, exchange -> {
+            if (!exchange.getRequestMethod().equalsIgnoreCase(method)) {
+                throw new ApiException(405, "Method Not Allowed");
             }
+            handler.handle(exchange);
         });
+    }
+
+    private void registerProtected(
+        String path,
+        Supplier<Boolean> enabledCheck,
+        HttpHandler handler
+    ) {
+        server.createContext(
+            path,
+            new ExchangeWrapper(exchange -> {
+                if (!enabledCheck.get()) {
+                    throw new ApiException(
+                        403,
+                        "This endpoint is disabled in the user's configuration"
+                    );
+                }
+                handler.handle(exchange);
+            })
+        );
     }
 
     private void requirePlayer() {
         if (mc.player == null) {
-            throw new PlayerUnavailableResponse();
+            throw new ApiException(503, "Player not available");
         }
     }
 
-    private void handleRoot(Context ctx) {
-        ctx.result(
+    private void handleRoot(HttpExchange exchange) throws IOException {
+        String text =
             "MC Local API v" +
-                modVersion +
-                " running on Minecraft " +
-                mc.getGameVersion() +
-                " " +
-                SharedConstants.getGameVersion().name()
-        );
+            modVersion +
+            " running on Minecraft " +
+            mc.getGameVersion() +
+            " " +
+            SharedConstants.getGameVersion().name();
+        sendText(exchange, 200, text);
     }
 
-    private void handlePostChatCommands(Context ctx) {
+    private void handlePostChatCommands(HttpExchange exchange)
+        throws IOException {
         requirePlayer();
 
-        String command = ctx.body();
-
+        String command = readBody(exchange);
         if (command.isEmpty()) {
-            throw new BadRequestResponse("Command cannot be empty");
+            throw new ApiException(400, "Command cannot be empty");
         }
 
         mc.player.networkHandler.sendChatCommand(command);
+        exchange.sendResponseHeaders(204, -1);
     }
 
-    private void handlePostChatMessages(Context ctx) {
+    private void handlePostChatMessages(HttpExchange exchange)
+        throws IOException {
         requirePlayer();
 
-        String message = ctx.body();
-
+        String message = readBody(exchange);
         if (message.isEmpty()) {
-            throw new BadRequestResponse("Message cannot be empty");
+            throw new ApiException(400, "Message cannot be empty");
         }
 
         mc.player.networkHandler.sendChatMessage(message);
+        exchange.sendResponseHeaders(204, -1);
     }
 
-    private void handleGetMods(Context ctx) {
+    private void handleGetMods(HttpExchange exchange) throws IOException {
         Map<String, String> mods = new HashMap<>();
 
         fabricLoader.getAllMods().forEach(modContainer -> {
@@ -134,51 +193,73 @@ public class RestApiProvider {
             );
         });
 
-        ctx.json(mods);
+        sendJson(exchange, mods);
     }
 
-    private void handleGetPlayerPosition(Context ctx) {
+    private void handleGetPlayerPosition(HttpExchange exchange)
+        throws IOException {
         requirePlayer();
-        ctx.result(mc.player.getPos().toString());
+        sendText(exchange, 200, mc.player.getPos().toString());
     }
 
-    private void handlePlayerPositionStream(SseClient sse) {
+    private void handlePlayerPositionStream(HttpExchange exchange)
+        throws IOException {
         requirePlayer();
 
-        sse.keepAlive();
+        exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
+        exchange.getResponseHeaders().set("Cache-Control", "no-cache");
+        exchange.getResponseHeaders().set("Connection", "keep-alive");
+        exchange.sendResponseHeaders(200, 0);
+
+        SseConnection sse = new SseConnection(exchange);
         sse.sendEvent(mc.player.getPos().toString());
 
+        Thread handlerThread = Thread.currentThread();
+        sse.onClose(() -> {
+            posSseClients.remove(sse);
+            handlerThread.interrupt();
+        });
         posSseClients.add(sse);
 
-        sse.onClose(() -> posSseClients.remove(sse));
+        try {
+            while (!sse.isClosed()) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        } finally {
+            sse.close();
+        }
     }
 
-    private void handleGetPlayerWorld(Context ctx) {
+    private void handleGetPlayerWorld(HttpExchange exchange)
+        throws IOException {
         requirePlayer();
 
         Identifier world = mc.world.getRegistryKey().getValue();
-
-        ctx.result(world.toString());
+        sendText(exchange, 200, world.toString());
     }
 
-    private void handleGetScreen(Context ctx) {
+    private void handleGetScreen(HttpExchange exchange) throws IOException {
         requirePlayer();
 
         if (mc.currentScreen == null) {
-            ctx.status(204);
+            exchange.sendResponseHeaders(204, -1);
             return;
         }
 
-        ctx.result(mc.currentScreen.getTitle().getString());
+        sendText(exchange, 200, mc.currentScreen.getTitle().getString());
     }
 
-    private void handleGetXaeroWaypointSets(Context ctx) {
+    private void handleGetXaeroWaypointSets(HttpExchange exchange)
+        throws IOException {
         MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
 
         if (session == null) {
-            throw new ServiceUnavailableResponse(
-                "No Xaero's Minimap session available"
-            );
+            throw new ApiException(503, "No Xaero's Minimap session available");
         }
 
         MinimapWorld world = session.getWorldManager().getCurrentWorld();
@@ -188,28 +269,136 @@ public class RestApiProvider {
             allWaypoints.add(set);
         }
 
-        ctx.json(allWaypoints);
+        sendJson(exchange, allWaypoints);
     }
 
-    private void handlePostXaeroWaypointSets(Context ctx) {
+    private void handlePostXaeroWaypointSets(HttpExchange exchange)
+        throws IOException {
         MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
 
         if (session == null) {
-            throw new ServiceUnavailableResponse(
-                "No Xaero's Minimap session available"
-            );
+            throw new ApiException(503, "No Xaero's Minimap session available");
         }
 
-        String setName = ctx.body();
-
+        String setName = readBody(exchange);
         if (setName.isEmpty()) {
-            throw new BadRequestResponse("Set name cannot be empty");
+            throw new ApiException(400, "Set name cannot be empty");
         }
 
         MinimapWorld world = session.getWorldManager().getCurrentWorld();
-
         world.addWaypointSet(setName);
 
-        ctx.json(world.getWaypointSet(setName));
+        sendJson(exchange, world.getWaypointSet(setName));
+    }
+
+    private String readBody(HttpExchange exchange) throws IOException {
+        return new String(
+            exchange.getRequestBody().readAllBytes(),
+            StandardCharsets.UTF_8
+        );
+    }
+
+    private void sendText(HttpExchange exchange, int status, String text)
+        throws IOException {
+        byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+        exchange
+            .getResponseHeaders()
+            .set("Content-Type", "text/plain; charset=UTF-8");
+        exchange.sendResponseHeaders(status, bytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(bytes);
+        }
+    }
+
+    private void sendJson(HttpExchange exchange, Object obj)
+        throws IOException {
+        String json = gson.toJson(obj);
+        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+        exchange
+            .getResponseHeaders()
+            .set("Content-Type", "application/json; charset=UTF-8");
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(bytes);
+        }
+    }
+
+    private static void sendError(
+        HttpExchange exchange,
+        int statusCode,
+        String message
+    ) {
+        try {
+            byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
+            exchange
+                .getResponseHeaders()
+                .set("Content-Type", "text/plain; charset=UTF-8");
+            exchange.sendResponseHeaders(statusCode, bytes.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(bytes);
+            }
+        } catch (IOException | IllegalStateException e) {
+            // Headers may already be sent; nothing we can do.
+        }
+    }
+
+    private class ExchangeWrapper implements HttpHandler {
+
+        private final HttpHandler delegate;
+
+        ExchangeWrapper(HttpHandler delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void handle(HttpExchange exchange) {
+            try {
+                if (config.enableCors) {
+                    exchange
+                        .getResponseHeaders()
+                        .set("Access-Control-Allow-Origin", "*");
+                    exchange
+                        .getResponseHeaders()
+                        .set(
+                            "Access-Control-Allow-Methods",
+                            "GET, POST, OPTIONS"
+                        );
+                    exchange
+                        .getResponseHeaders()
+                        .set("Access-Control-Allow-Headers", "Content-Type");
+
+                    if (
+                        "OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())
+                    ) {
+                        exchange.sendResponseHeaders(204, -1);
+                        return;
+                    }
+                }
+
+                exchange
+                    .getResponseHeaders()
+                    .set(
+                        "Server",
+                        "MC Local API v" +
+                            modVersion +
+                            ", Minecraft " +
+                            SharedConstants.getGameVersion().id()
+                    );
+
+                delegate.handle(exchange);
+            } catch (ApiException e) {
+                sendError(exchange, e.getStatusCode(), e.getMessage());
+            } catch (Exception e) {
+                luisafk.mclocalapi.MCLocalAPIClient.logger.error(
+                    "Error handling request {} {}",
+                    exchange.getRequestMethod(),
+                    exchange.getRequestURI(),
+                    e
+                );
+                sendError(exchange, 500, "Internal Server Error");
+            } finally {
+                exchange.close();
+            }
+        }
     }
 }
