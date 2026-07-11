@@ -61,7 +61,9 @@
 
           "@graphiql/toolkit": "https://esm.sh/@graphiql/toolkit?standalone&external=graphql",
           "graphql": "https://esm.sh/graphql@16.11.0",
-          "@emotion/is-prop-valid": "data:text/javascript,"
+          "@emotion/is-prop-valid": "data:text/javascript,",
+
+          "graphql-ws": "https://esm.sh/graphql-ws@6.0.6"
         }
       }
     </script>
@@ -72,10 +74,16 @@
       import { GraphiQL, HISTORY_PLUGIN } from "graphiql";
       import { createGraphiQLFetcher } from "@graphiql/toolkit";
       import { explorerPlugin } from "@graphiql/plugin-explorer";
+      import { createClient } from "graphql-ws";
       import "graphiql/setup-workers/esm.sh";
+
+      const wsClient = createClient({
+        url: `ws://${location.host}/graphql_subscriptions`,
+      });
 
       const fetcher = createGraphiQLFetcher({
         url: "graphql",
+        wsClient,
       });
       const plugins = [HISTORY_PLUGIN, explorerPlugin()];
 

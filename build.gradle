@@ -71,6 +71,9 @@ dependencies {
 
     // GraphQL Java
     modShade "com.graphql-java:graphql-java:24.1"
+
+    // Reactive streams support, for GraphQL subscriptions
+    modShade "io.projectreactor:reactor-core:3.7.8"
 }
 
 processResources {

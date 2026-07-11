@@ -102,6 +102,19 @@ mutation {
 }
 ```
 
+## Subscriptions
+
+### Subscribe to Player Position Updates
+
+```graphql
+subscription {
+  playerPosition {
+    position
+    world
+  }
+}
+```
+
 ## GraphQL Endpoint
 
 The GraphQL endpoint is available at:

@@ -185,6 +185,9 @@ public class GraphQLProvider {
                         .dataFetcher("sendChatCommand", sendChatCommandFetcher())
                         .dataFetcher("sendChatMessage", sendChatMessageFetcher())
                         .dataFetcher("createXaeroWaypointSet", createXaeroWaypointSetFetcher()))
+                .type("Subscription",
+                        builder -> builder.dataFetcher("playerPosition",
+                                PlayerPositionSubscription.playerPositionSubscription()))
                 .build();
     }
 }

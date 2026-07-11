@@ -17,6 +17,7 @@ import com.mojang.brigadier.Command;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
+import graphql.execution.SubscriptionExecutionStrategy;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
@@ -28,8 +29,11 @@ import io.javalin.http.ContentType;
 import io.javalin.http.Context;
 import io.javalin.http.sse.SseClient;
 import io.javalin.util.JavalinBindException;
+import io.javalin.websocket.WsConfig;
 import luisafk.mclocalapi.graphql.GraphQLProvider;
 import luisafk.mclocalapi.graphql.GraphQLRequest;
+import luisafk.mclocalapi.graphql.GraphQLWebSocketHandler;
+import luisafk.mclocalapi.graphql.PlayerPositionSubscription;
 import luisafk.mclocalapi.rest.RestApiProvider;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -41,7 +45,6 @@ import net.minecraft.SharedConstants;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 
 public class MCLocalAPIClient implements ClientModInitializer {
@@ -58,9 +61,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
     private Javalin server;
     private GraphQL graphQl;
+    private GraphQLWebSocketHandler graphQlWebSocketHandler;
 
-    Vec3d lastPos = new Vec3d(0, 0, 0);
-    Identifier lastWorld;
+    Vec3d lastPos;
+    String lastWorld;
 
     public static final List<SseClient> posSseClients = new CopyOnWriteArrayList<>();
 
@@ -96,8 +100,13 @@ public class MCLocalAPIClient implements ClientModInitializer {
             }
 
             Vec3d pos = mc.player.getPos();
+            String world = mc.world.getRegistryKey().getValue().toString();
 
-            if (lastPos.distanceTo(pos) > config.playerPositionStreamDistanceThreshold()) {
+            Boolean didPositionChange = lastPos == null
+                    || lastPos.distanceTo(pos) > config.playerPositionStreamDistanceThreshold();
+            Boolean didWorldChange = lastWorld == null || !lastWorld.equals(world);
+
+            if (didPositionChange) {
                 lastPos = pos;
 
                 posSseClients.forEach(sse -> {
@@ -110,9 +119,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 });
             }
 
-            Identifier world = mc.world.getRegistryKey().getValue();
-
-            if (lastWorld != world) {
+            if (didWorldChange) {
                 lastWorld = world;
 
                 posSseClients.forEach(sse -> {
@@ -123,6 +130,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
                         sse.close();
                     }
                 });
+            }
+
+            if (didPositionChange || didWorldChange) {
+                PlayerPositionSubscription.broadcastPositionUpdate(pos, world);
             }
         });
 
@@ -154,7 +165,11 @@ public class MCLocalAPIClient implements ClientModInitializer {
         RuntimeWiring runtimeWiring = GraphQLProvider.buildWiring();
         GraphQLSchema schema = new SchemaGenerator().makeExecutableSchema(typeRegistry, runtimeWiring);
 
-        graphQl = GraphQL.newGraphQL(schema).build();
+        graphQl = GraphQL.newGraphQL(schema)
+                .subscriptionExecutionStrategy(new SubscriptionExecutionStrategy())
+                .build();
+
+        graphQlWebSocketHandler = new GraphQLWebSocketHandler(graphQl);
     }
 
     private boolean startServer() {
@@ -198,6 +213,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         // GraphQL endpoints
         server.post("/graphql", this::handleGraphQL);
         server.get("/graphiql", this::handleGraphiQL);
+        server.ws("/graphql_subscriptions", this::handleGraphQLSubscriptions);
 
         logger.info("MC Local API server started on port {}", server.port());
         if (mc.player != null) {
@@ -303,5 +319,26 @@ public class MCLocalAPIClient implements ClientModInitializer {
         }
 
         ctx.contentType(ContentType.TEXT_HTML).result(graphiqlStream);
+    }
+
+    private void handleGraphQLSubscriptions(WsConfig ws) {
+        ws.onConnect(ctx -> {
+            logger.info("New GraphQL subscription WebSocket connection opened");
+            graphQlWebSocketHandler.handleConnect(ctx);
+        });
+
+        ws.onMessage(ctx -> {
+            graphQlWebSocketHandler.handleMessage(ctx);
+        });
+
+        ws.onClose(ctx -> {
+            logger.info("GraphQL subscription WebSocket connection closed");
+            graphQlWebSocketHandler.handleClose(ctx);
+        });
+
+        ws.onError(ctx -> {
+            logger.error("GraphQL subscription WebSocket error", ctx.error());
+            graphQlWebSocketHandler.handleError(ctx);
+        });
     }
 }

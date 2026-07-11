@@ -1,6 +1,7 @@
 schema {
   query: Query
   mutation: Mutation
+  subscription: Subscription
 }
 
 type Query {
@@ -16,9 +17,18 @@ type Mutation {
   createXaeroWaypointSet(name: String!): XaeroWaypointSet
 }
 
+type Subscription {
+  playerPosition: PlayerPositionUpdate!
+}
+
 type Player {
   position: String
   world: String
+}
+
+type PlayerPositionUpdate {
+  position: String!
+  world: String!
 }
 
 type Mod {
