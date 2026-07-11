@@ -2,12 +2,12 @@
 
 ## Architecture Overview
 
-This is a Minecraft Fabric mod that provides a local HTTP API for interacting with the Minecraft client. The mod uses **Javalin** for REST endpoints and **GraphQL Java** for query API, all running embedded within the Minecraft client.
+This is a Minecraft Fabric mod that provides a local HTTP REST API for interacting with the Minecraft client. The mod uses **Javalin** as the embedded HTTP server, running inside the Minecraft client.
 
 ### Key Components
 
 - **`MCLocalAPIClient`**: Main entry point implementing `ClientModInitializer`
-- **Javalin HTTP Server**: Embedded web server (default port 25566) with REST + GraphQL endpoints
+- **Javalin HTTP Server**: Embedded web server (default port 25566) with REST endpoints
 - **Configuration**: Uses `owo-lib` for mod configuration with endpoint toggles and security controls
 - **Integration Points**: Xaero's Minimap (waypoints), Baritone (optional), standard MC client APIs
 
@@ -37,8 +37,7 @@ private void requirePlayer() {
 ### Error Handling
 
 - Custom Javalin exceptions: `EndpointDisabledResponse`, `PlayerUnavailableResponse`
-- GraphQL errors: Use `GraphQLException` with descriptive messages
-- Endpoint availability checks in both REST and GraphQL layers
+- Endpoint availability checks in REST handlers
 
 ### Configuration Management
 
@@ -52,7 +51,6 @@ private void requirePlayer() {
 ### Key Dependencies (Shaded into JAR)
 
 - `io.javalin:javalin:6.7.0` - HTTP server
-- `com.graphql-java:graphql-java:24.1` - GraphQL implementation
 - `com.fasterxml.jackson.core:jackson-databind` - JSON serialization
 
 ### Build Commands
@@ -78,12 +76,6 @@ Access via `BuiltInHudModules.MINIMAP.getCurrentSession()`:
 - Use `MinimapWorld` for waypoint operations
 - Handle `ServiceUnavailableResponse` when mod not loaded
 
-### GraphQL Schema (`src/main/resources/schema.graphqls`)
-
-- Queries: `player`, `mods`, `screen`, `xaeroWaypointSets`
-- Mutations: `sendChatCommand`, `sendChatMessage`, `createXaeroWaypointSet`
-- Data fetchers in `GraphQLProvider` mirror REST endpoint logic
-
 ### Client Tick Events
 
 Position streaming uses `ClientTickEvents.START_CLIENT_TICK` for real-time updates:
@@ -103,7 +95,6 @@ Position streaming uses `ClientTickEvents.START_CLIENT_TICK` for real-time updat
 
 - Auto-starts if `config.autoStart()` is true
 - CORS enabled by default for development
-- GraphQL disabled by default (security consideration)
 
 ### Configuration Location
 
