@@ -46,7 +46,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        if (config.autoStart()) {
+        if (config.autoStart) {
             startServer();
         }
 
@@ -85,7 +85,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
             if (mc.player == null) {
-                if (config.closePlayerPositionStreams()) {
+                if (config.closePlayerPositionStreams) {
                     posSseClients.forEach(SseClient::close);
                     posSseClients.clear();
                 }
@@ -98,7 +98,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
             Boolean didPositionChange =
                 lastPos == null ||
                 lastPos.distanceTo(pos) >
-                    config.playerPositionStreamDistanceThreshold();
+                    config.playerPositionStreamDistanceThreshold;
             Boolean didWorldChange =
                 lastWorld == null || !lastWorld.equals(world);
 
@@ -147,7 +147,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
             // Create and configure the Javalin server
             server = Javalin.create(serverConfig -> {
                 // Enable CORS if configured
-                if (config.enableCors()) {
+                if (config.enableCors) {
                     serverConfig.bundledPlugins.enableCors(cors -> {
                         cors.addRule(it -> {
                             it.anyHost();
@@ -169,11 +169,11 @@ public class MCLocalAPIClient implements ClientModInitializer {
                             );
                     }
                 );
-            }).start(config.port());
+            }).start(config.port);
         } catch (JavalinBindException e) {
             logger.error(
                 "Failed to start MC Local API server on port {}: {}",
-                config.port(),
+                config.port,
                 e.getMessage()
             );
 
@@ -181,7 +181,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 mc.player.sendMessage(
                     Text.literal(
                         "Failed to start MC Local API server on port " +
-                            config.port() +
+                            config.port +
                             ": " +
                             e.getMessage()
                     ).formatted(Formatting.RED),
@@ -199,7 +199,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
         if (mc.player != null) {
             mc.player.sendMessage(
                 Text.literal(
-                    "MC Local API server started on port " + config.port()
+                    "MC Local API server started on port " + config.port
                 ).formatted(Formatting.GREEN),
                 false
             );

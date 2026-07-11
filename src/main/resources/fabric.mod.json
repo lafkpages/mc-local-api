@@ -19,16 +19,18 @@
   "icon": "assets/mc-local-api/icon.png",
   "environment": "*",
   "entrypoints": {
-    "client": ["luisafk.mclocalapi.MCLocalAPIClient"]
+    "client": ["luisafk.mclocalapi.MCLocalAPIClient"],
+    "modmenu": ["luisafk.mclocalapi.MCLocalAPIModMenu"]
   },
   "depends": {
-    "fabricloader": ">=0.16.14",
+    "fabricloader": ">=0.18.0",
     "minecraft": "~1.21.8",
     "java": ">=21",
-    "fabric-api": "*"
+    "fabric-api": "*",
+    "yet_another_config_lib_v3": ">=3.8.2"
   },
   "suggests": {
-    "baritone": "1.11.2",
-    "xaerominimap": "25.2.0"
+    "baritone": "1.14.0",
+    "xaerominimap": "25.2.12"
   }
 }

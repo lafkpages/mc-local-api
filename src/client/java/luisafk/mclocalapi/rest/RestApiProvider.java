@@ -6,17 +6,16 @@ import static luisafk.mclocalapi.MCLocalAPIClient.mc;
 import static luisafk.mclocalapi.MCLocalAPIClient.modVersion;
 import static luisafk.mclocalapi.MCLocalAPIClient.posSseClients;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Supplier;
-
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.ServiceUnavailableResponse;
 import io.javalin.http.sse.SseClient;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 import net.minecraft.SharedConstants;
 import net.minecraft.util.Identifier;
 import xaero.hud.minimap.BuiltInHudModules;
@@ -25,6 +24,7 @@ import xaero.hud.minimap.waypoint.set.WaypointSet;
 import xaero.hud.minimap.world.MinimapWorld;
 
 public class RestApiProvider {
+
     private Javalin server;
 
     public RestApiProvider(Javalin server) {
@@ -35,14 +35,32 @@ public class RestApiProvider {
         server.get("/", this::handleRoot);
 
         // Protect RESTful endpoints
-        protectEndpoint("/chat/commands", () -> config.enableEndpointChatCommands());
-        protectEndpoint("/chat/messages", () -> config.enableEndpointChatMessages());
-        protectEndpoint("/mods", () -> config.enableEndpointMods());
-        protectEndpoint("/player/position", () -> config.enableEndpointPlayerPosition());
-        protectEndpoint("/player/position/stream", () -> config.enableEndpointPlayerPositionStream());
-        protectEndpoint("/player/world", () -> config.enableEndpointPlayerWorld());
-        protectEndpoint("/screen", () -> config.enableEndpointScreen());
-        protectEndpoint("/xaero/waypoint-sets", () -> config.enableEndpointXaeroWaypointSets());
+        protectEndpoint(
+            "/chat/commands",
+            () -> config.enableEndpointChatCommands
+        );
+        protectEndpoint(
+            "/chat/messages",
+            () -> config.enableEndpointChatMessages
+        );
+        protectEndpoint("/mods", () -> config.enableEndpointMods);
+        protectEndpoint(
+            "/player/position",
+            () -> config.enableEndpointPlayerPosition
+        );
+        protectEndpoint(
+            "/player/position/stream",
+            () -> config.enableEndpointPlayerPositionStream
+        );
+        protectEndpoint(
+            "/player/world",
+            () -> config.enableEndpointPlayerWorld
+        );
+        protectEndpoint("/screen", () -> config.enableEndpointScreen);
+        protectEndpoint(
+            "/xaero/waypoint-sets",
+            () -> config.enableEndpointXaeroWaypointSets
+        );
 
         // RESTful routes
         server.post("/chat/commands", this::handlePostChatCommands);
@@ -71,9 +89,14 @@ public class RestApiProvider {
     }
 
     private void handleRoot(Context ctx) {
-        ctx.result("MC Local API v" + modVersion + " running on Minecraft "
-                + mc.getGameVersion() + " "
-                + SharedConstants.getGameVersion().name());
+        ctx.result(
+            "MC Local API v" +
+                modVersion +
+                " running on Minecraft " +
+                mc.getGameVersion() +
+                " " +
+                SharedConstants.getGameVersion().name()
+        );
     }
 
     private void handlePostChatCommands(Context ctx) {
@@ -105,7 +128,10 @@ public class RestApiProvider {
 
         fabricLoader.getAllMods().forEach(modContainer -> {
             var metadata = modContainer.getMetadata();
-            mods.put(metadata.getId(), metadata.getVersion().getFriendlyString());
+            mods.put(
+                metadata.getId(),
+                metadata.getVersion().getFriendlyString()
+            );
         });
 
         ctx.json(mods);
@@ -150,7 +176,9 @@ public class RestApiProvider {
         MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
 
         if (session == null) {
-            throw new ServiceUnavailableResponse("No Xaero's Minimap session available");
+            throw new ServiceUnavailableResponse(
+                "No Xaero's Minimap session available"
+            );
         }
 
         MinimapWorld world = session.getWorldManager().getCurrentWorld();
@@ -167,7 +195,9 @@ public class RestApiProvider {
         MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
 
         if (session == null) {
-            throw new ServiceUnavailableResponse("No Xaero's Minimap session available");
+            throw new ServiceUnavailableResponse(
+                "No Xaero's Minimap session available"
+            );
         }
 
         String setName = ctx.body();

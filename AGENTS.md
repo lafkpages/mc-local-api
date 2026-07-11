@@ -8,7 +8,7 @@ This is a Minecraft Fabric mod that provides a local HTTP REST API for interacti
 
 - **`MCLocalAPIClient`**: Main entry point implementing `ClientModInitializer`
 - **Javalin HTTP Server**: Embedded web server (default port 25566) with REST endpoints
-- **Configuration**: Uses `owo-lib` for mod configuration with endpoint toggles and security controls
+- **Configuration**: Uses **YACL** (Yet Another Config Lib) for mod configuration with endpoint toggles and security controls, plus an optional ModMenu integration for the config screen
 - **Integration Points**: Xaero's Minimap (waypoints), Baritone (optional), standard MC client APIs
 
 ## Development Patterns
@@ -18,7 +18,7 @@ This is a Minecraft Fabric mod that provides a local HTTP REST API for interacti
 All endpoints use a protection mechanism via `protectEndpoint()`:
 
 ```java
-protectEndpoint("/endpoint", () -> config.enableEndpointName());
+protectEndpoint("/endpoint", () -> config.enableEndpointName);
 server.get("/endpoint", this::handleEndpoint);
 ```
 
@@ -41,7 +41,10 @@ private void requirePlayer() {
 
 ### Configuration Management
 
-- Config stored in `MCLocalAPIConfigModel` with owo-lib annotations
+- Config lives in `MCLocalAPIConfig`, a plain data class using YACL's GSON-based Config API (`@SerialEntry` fields + `ConfigClassHandler`); no annotation processor is involved
+- The fields are the single source of truth: REST handlers and the client read them directly (e.g. `config.port`, `config.enableEndpointMods`)
+- The settings GUI is generated reflectively from `@AutoGen` + controller annotations (`@TickBox`, `@IntField`, `@DoubleField`) via `HANDLER.generateGui()`; `MCLocalAPIConfig.createScreen(parent)` wires it to ModMenu (an optional runtime dependency)
+- GUI labels come from `yacl3.config.mc-local-api:config.*` keys in `assets/mc-local-api/lang/en_us.json`
 - Endpoint toggles: Each API endpoint can be individually disabled
 - Security settings: CORS, auto-start, port configuration
 - Access via static `config` field in `MCLocalAPIClient`
@@ -93,7 +96,7 @@ Position streaming uses `ClientTickEvents.START_CLIENT_TICK` for real-time updat
 
 ### Development Server
 
-- Auto-starts if `config.autoStart()` is true
+- Auto-starts if `config.autoStart` is true
 - CORS enabled by default for development
 
 ### Configuration Location
