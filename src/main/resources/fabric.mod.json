@@ -3,7 +3,7 @@
   "id": "mc-local-api",
   "version": "${version}",
   "name": "MC Local API",
-  "description": "Local API for interacting with Minecraft",
+  "description": "A Minecraft mod that provides a local HTTP REST API for interacting with and querying your Minecraft client.",
   "authors": [
     {
       "name": "LuisAFK",
