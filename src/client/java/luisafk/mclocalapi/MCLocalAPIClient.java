@@ -3,22 +3,21 @@ package luisafk.mclocalapi;
 import com.mojang.brigadier.Command;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
-import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import luisafk.mclocalapi.rest.RestApiProvider;
 import luisafk.mclocalapi.rest.SseConnection;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.Version;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +26,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
     public static final MCLocalAPIConfig config =
         MCLocalAPIConfig.createAndLoad();
 
-    public static final MinecraftClient mc = MinecraftClient.getInstance();
+    public static final Minecraft mc = Minecraft.getInstance();
     public static final FabricLoader fabricLoader = FabricLoader.getInstance();
 
     public static final Logger logger = LoggerFactory.getLogger("mc-local-api");
@@ -39,7 +38,7 @@ public class MCLocalAPIClient implements ClientModInitializer {
 
     private HttpServer server;
 
-    Vec3d lastPos;
+    Vec3 lastPos;
     String lastWorld;
 
     public static final List<SseConnection> posSseClients =
@@ -54,12 +53,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
         ClientCommandRegistrationCallback.EVENT.register(
             (dispatcher, registryAccess) -> {
                 dispatcher.register(
-                    ClientCommandManager.literal("startserver").executes(
-                        context -> {
-                            startServer();
-                            return Command.SINGLE_SUCCESS;
-                        }
-                    )
+                    ClientCommands.literal("startserver").executes(context -> {
+                        startServer();
+                        return Command.SINGLE_SUCCESS;
+                    })
                 );
             }
         );
@@ -67,19 +64,17 @@ public class MCLocalAPIClient implements ClientModInitializer {
         ClientCommandRegistrationCallback.EVENT.register(
             (dispatcher, registryAccess) -> {
                 dispatcher.register(
-                    ClientCommandManager.literal("stopserver").executes(
-                        context -> {
-                            stopServer();
-                            context
-                                .getSource()
-                                .sendFeedback(
-                                    Text.literal(
-                                        "MC Local API server stopped"
-                                    ).formatted(Formatting.YELLOW)
-                                );
-                            return Command.SINGLE_SUCCESS;
-                        }
-                    )
+                    ClientCommands.literal("stopserver").executes(context -> {
+                        stopServer();
+                        context
+                            .getSource()
+                            .sendFeedback(
+                                Component.literal(
+                                    "MC Local API server stopped"
+                                ).withStyle(ChatFormatting.YELLOW)
+                            );
+                        return Command.SINGLE_SUCCESS;
+                    })
                 );
             }
         );
@@ -93,8 +88,8 @@ public class MCLocalAPIClient implements ClientModInitializer {
                 return;
             }
 
-            Vec3d pos = mc.player.getPos();
-            String world = mc.world.getRegistryKey().getValue().toString();
+            Vec3 pos = mc.player.position();
+            String world = mc.level.dimension().identifier().toString();
 
             boolean didPositionChange =
                 lastPos == null ||
@@ -148,26 +143,6 @@ public class MCLocalAPIClient implements ClientModInitializer {
             server = HttpServer.create(new InetSocketAddress(config.port), 0);
             new RestApiProvider(server).defineRoutes();
             server.start();
-        } catch (BindException e) {
-            logger.error(
-                "Failed to start MC Local API server on port {}: {}",
-                config.port,
-                e.getMessage()
-            );
-
-            if (mc.player != null) {
-                mc.player.sendMessage(
-                    Text.literal(
-                        "Failed to start MC Local API server on port " +
-                            config.port +
-                            ": " +
-                            e.getMessage()
-                    ).formatted(Formatting.RED),
-                    false
-                );
-            }
-
-            return false;
         } catch (IOException e) {
             logger.error(
                 "Failed to start MC Local API server on port {}: {}",
@@ -176,14 +151,13 @@ public class MCLocalAPIClient implements ClientModInitializer {
             );
 
             if (mc.player != null) {
-                mc.player.sendMessage(
-                    Text.literal(
+                mc.player.sendSystemMessage(
+                    Component.literal(
                         "Failed to start MC Local API server on port " +
                             config.port +
                             ": " +
                             e.getMessage()
-                    ).formatted(Formatting.RED),
-                    false
+                    ).withStyle(ChatFormatting.RED)
                 );
             }
 
@@ -195,11 +169,10 @@ public class MCLocalAPIClient implements ClientModInitializer {
             server.getAddress().getPort()
         );
         if (mc.player != null) {
-            mc.player.sendMessage(
-                Text.literal(
+            mc.player.sendSystemMessage(
+                Component.literal(
                     "MC Local API server started on port " + config.port
-                ).formatted(Formatting.GREEN),
-                false
+                ).withStyle(ChatFormatting.GREEN)
             );
         }
 

@@ -1,15 +1,6 @@
 plugins {
-    id 'fabric-loom' version '1.17-SNAPSHOT'
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
     id 'maven-publish'
-}
-
-// Add this new configurations block
-configurations {
-    // This configuration will hold all the libraries we want to bundle into our mod
-    modShade
-
-    // Automatically add all `modImplementation` dependencies to our `modShade` configuration
-    modImplementation.extendsFrom(modShade)
 }
 
 version = project.mod_version
@@ -49,26 +40,32 @@ loom {
 }
 
 dependencies {
-    // Minecraft & Fabric
+    // Minecraft & Fabric.
+    // Minecraft 26.1+ is unobfuscated, so there is no `mappings` line and mod
+    // dependencies use the plain `implementation`/`compileOnly` configurations
+    // (Loom no longer remaps them).
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}" // This is technically optional, but you probably want it anyway.
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}" // Technically optional, but you probably want it anyway.
 
     // YACL
-    modImplementation "dev.isxander:yet-another-config-lib:${project.yacl_version}"
+    implementation "dev.isxander:yet-another-config-lib:${project.yacl_version}"
 
     // ModMenu integration (optional at runtime, only needed to compile the entrypoint)
-    modCompileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
+    compileOnly "maven.modrinth:modmenu:${project.modmenu_version}"
     // ...but include it in the dev runtime so the config screen is testable via runClient
-    modLocalRuntime "maven.modrinth:modmenu:${project.modmenu_version}"
+    localRuntime "maven.modrinth:modmenu:${project.modmenu_version}"
 
-    // Optional dependency for Baritone
-    modImplementation "baritone-standalone-fabric:baritone-standalone-fabric:1.14.0-1-g4e05355f"
-    modImplementation "nether-pathfinder:nether-pathfinder:1.6"
+    // Optional dependency for Baritone.
+    // TODO: re-enable once Baritone ships a build for Minecraft 26.1.x.
+    // implementation "baritone-standalone-fabric:baritone-standalone-fabric:1.14.0-1-g4e05355f"
+    // implementation "nether-pathfinder:nether-pathfinder:1.6"
 
     // Optional dependency for Xaero's Minimap
-    modImplementation "maven.modrinth:xaeros-minimap:${project.xaeros_minimap_version}"
+    implementation "maven.modrinth:xaeros-minimap:${project.xaeros_minimap_version}"
+
+    // Nothing is shaded: the HTTP server is the JDK's built-in
+    // com.sun.net.httpserver and JSON uses Gson (bundled with Minecraft).
 }
 
 processResources {
@@ -80,27 +77,18 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
+    it.options.release = 25
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 
-// Modify the 'jar' task to include the 'shade' configuration
 jar {
     from("LICENSE") {
         rename { "${it}_${project.base.archivesName.get()}" }
     }
-
-    // This tells the JAR task to find all the libraries in the 'modShade'
-    // configuration and embed them.
-    from {
-        configurations.modShade.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 publishing {

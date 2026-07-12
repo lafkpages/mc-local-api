@@ -24,10 +24,10 @@
   },
   "depends": {
     "fabricloader": ">=0.18.0",
-    "minecraft": "~1.21.8",
-    "java": ">=21",
+    "minecraft": ">=26.1 <26.2",
+    "java": ">=25",
     "fabric-api": "*",
-    "yet_another_config_lib_v3": ">=3.8.2"
+    "yet_another_config_lib_v3": ">=3.9.5"
   },
   "suggests": {
     "baritone": "1.14.0",

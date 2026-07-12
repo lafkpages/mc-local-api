@@ -8,8 +8,8 @@ import dev.isxander.yacl3.config.v2.api.autogen.IntField;
 import dev.isxander.yacl3.config.v2.api.autogen.TickBox;
 import dev.isxander.yacl3.config.v2.api.serializer.GsonConfigSerializerBuilder;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.resources.Identifier;
 
 /**
  * Mod configuration. Fields are the single source of truth: {@link SerialEntry}
@@ -27,7 +27,7 @@ public class MCLocalAPIConfig {
 
     public static final ConfigClassHandler<MCLocalAPIConfig> HANDLER =
         ConfigClassHandler.createBuilder(MCLocalAPIConfig.class)
-            .id(Identifier.of("mc-local-api", "config"))
+            .id(Identifier.fromNamespaceAndPath("mc-local-api", "config"))
             .serializer(config ->
                 GsonConfigSerializerBuilder.create(config)
                     .setPath(

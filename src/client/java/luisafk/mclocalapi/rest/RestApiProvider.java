@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import net.minecraft.SharedConstants;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 import xaero.hud.minimap.BuiltInHudModules;
 import xaero.hud.minimap.module.MinimapSession;
 import xaero.hud.minimap.waypoint.set.WaypointSet;
@@ -150,9 +150,9 @@ public class RestApiProvider {
             "MC Local API v" +
             modVersion +
             " running on Minecraft " +
-            mc.getGameVersion() +
+            mc.getLaunchedVersion() +
             " " +
-            SharedConstants.getGameVersion().name();
+            SharedConstants.getCurrentVersion().name();
         sendText(exchange, 200, text);
     }
 
@@ -165,7 +165,7 @@ public class RestApiProvider {
             throw new ApiException(400, "Command cannot be empty");
         }
 
-        mc.player.networkHandler.sendChatCommand(command);
+        mc.getConnection().sendCommand(command);
         exchange.sendResponseHeaders(204, -1);
     }
 
@@ -178,7 +178,7 @@ public class RestApiProvider {
             throw new ApiException(400, "Message cannot be empty");
         }
 
-        mc.player.networkHandler.sendChatMessage(message);
+        mc.getConnection().sendChat(message);
         exchange.sendResponseHeaders(204, -1);
     }
 
@@ -199,7 +199,7 @@ public class RestApiProvider {
     private void handleGetPlayerPosition(HttpExchange exchange)
         throws IOException {
         requirePlayer();
-        sendText(exchange, 200, mc.player.getPos().toString());
+        sendText(exchange, 200, mc.player.position().toString());
     }
 
     private void handlePlayerPositionStream(HttpExchange exchange)
@@ -212,7 +212,7 @@ public class RestApiProvider {
         exchange.sendResponseHeaders(200, 0);
 
         SseConnection sse = new SseConnection(exchange);
-        sse.sendEvent(mc.player.getPos().toString());
+        sse.sendEvent(mc.player.position().toString());
 
         Thread handlerThread = Thread.currentThread();
         sse.onClose(() -> {
@@ -239,19 +239,19 @@ public class RestApiProvider {
         throws IOException {
         requirePlayer();
 
-        Identifier world = mc.world.getRegistryKey().getValue();
+        Identifier world = mc.level.dimension().identifier();
         sendText(exchange, 200, world.toString());
     }
 
     private void handleGetScreen(HttpExchange exchange) throws IOException {
         requirePlayer();
 
-        if (mc.currentScreen == null) {
+        if (mc.screen == null) {
             exchange.sendResponseHeaders(204, -1);
             return;
         }
 
-        sendText(exchange, 200, mc.currentScreen.getTitle().getString());
+        sendText(exchange, 200, mc.screen.getTitle().getString());
     }
 
     private void handleGetXaeroWaypointSets(HttpExchange exchange)
@@ -382,7 +382,7 @@ public class RestApiProvider {
                         "MC Local API v" +
                             modVersion +
                             ", Minecraft " +
-                            SharedConstants.getGameVersion().id()
+                            SharedConstants.getCurrentVersion().id()
                     );
 
                 delegate.handle(exchange);
