@@ -246,12 +246,14 @@ public class RestApiProvider {
     private void handleGetScreen(HttpExchange exchange) throws IOException {
         requirePlayer();
 
-        if (mc.screen == null) {
+        var screen = mc.gui.screen();
+
+        if (screen == null) {
             exchange.sendResponseHeaders(204, -1);
             return;
         }
 
-        sendText(exchange, 200, mc.screen.getTitle().getString());
+        sendText(exchange, 200, screen.getTitle().getString());
     }
 
     private void handleGetXaeroWaypointSets(HttpExchange exchange)
