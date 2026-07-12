@@ -57,7 +57,7 @@ dependencies {
     localRuntime "maven.modrinth:modmenu:${project.modmenu_version}"
 
     // Optional dependency for Baritone.
-    // TODO: re-enable once Baritone ships a build for Minecraft 26.1.x.
+    // TODO: re-enable once Baritone ships a build for Minecraft 26.2.x.
     // implementation "baritone-standalone-fabric:baritone-standalone-fabric:1.14.0-1-g4e05355f"
     // implementation "nether-pathfinder:nether-pathfinder:1.6"
 
